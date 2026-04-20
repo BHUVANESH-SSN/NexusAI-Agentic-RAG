@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+.env
+
+# FastAPI / Web
+*.log
+
+# Next.js / Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Database
+*.db
+*.sqlite3
+db/*.db
+!db/init_db.py
+
+# Models & Data
+data/docs/
+vector_store/
+chroma_db/
+faiss_index/
+
+# IDEs
+.vscode/
+.idea/
+.codex/
+.DS_Store
+.sixth/

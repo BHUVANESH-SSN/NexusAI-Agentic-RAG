@@ -1,0 +1,173 @@
+.chatContainer {
+    height: calc(100vh - 160px);
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    backdrop-filter: blur(24px);
+    border-radius: 28px;
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 8px 32px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.messages {
+    flex: 1;
+    padding: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    overflow-y: auto;
+}
+
+.emptyState {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    opacity: 0.8;
+}
+
+.emptyState h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.emptyState p {
+    color: var(--muted-foreground);
+    font-size: 1.1rem;
+}
+
+.messageWrapper {
+    display: flex;
+    gap: 1.5rem;
+    max-width: 80%;
+    animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.user .avatar {
+    display: none;
+}
+
+.bubble {
+    padding: 1.25rem 1.5rem;
+    border-radius: 20px;
+    line-height: 1.6;
+    color: var(--foreground);
+    font-size: 0.95rem;
+}
+
+.user .bubble {
+    background: var(--primary);
+    color: #0f1729;
+    /* Dark background color for text to pop on blue */
+    font-weight: 500;
+    border: none;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 8px 25px rgba(125, 211, 252, 0.2);
+}
+
+.bot .bubble {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-strong);
+    border-bottom-left-radius: 4px;
+}
+
+.content {
+    font-weight: 400;
+    letter-spacing: 0.01em;
+}
+
+.sourceTag {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: var(--foreground);
+    border: 1px solid var(--border-strong);
+    font-family: var(--font-mono), monospace;
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+.inputArea {
+    padding: 2.5rem 3rem;
+    background: rgba(10, 15, 26, 0.8);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 1.5rem;
+}
+
+.input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-strong);
+    padding: 1.25rem 2rem;
+    border-radius: 16px;
+    color: white;
+    font-size: 1rem;
+    font-family: var(--font-body), sans-serif;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.input:focus {
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.15);
+}
+
+.sendButton {
+    background: var(--primary);
+    color: #0f1729;
+    border: none;
+    padding: 0 2rem;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.sendButton:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(125, 211, 252, 0.4);
+}
+
+.thinking {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-strong);
+    padding: 18px 24px;
+    border-radius: 12px;
+}

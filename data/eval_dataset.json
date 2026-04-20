@@ -1,0 +1,64 @@
+{
+    "test_cases": [
+        {
+            "id": 1,
+            "question": "What is the procedure for reporting a breach of UPSI?",
+            "expected_source": "tcs.pdf",
+            "expected_answer": "Inform the Compliance Officer immediately who will take measures to rectify the disclosure."
+        },
+        {
+            "id": 2,
+            "question": "What happens if an employee leaks sensitive company data?",
+            "expected_source": "tcs.pdf",
+            "expected_answer": "Disciplinary action, potential termination, and legal consequences according to company code of conduct."
+        },
+        {
+            "id": 3,
+            "question": "How many days of annual leave are employees entitled to?",
+            "expected_source": "hr_handbook.pdf",
+            "expected_answer": "25 days per calendar year for full-time employees."
+        },
+        {
+            "id": 4,
+            "question": "What is the policy on remote work and flexible hours?",
+            "expected_source": "work_policy.pdf",
+            "expected_answer": "Employees can work remotely up to 3 days a week with manager approval."
+        },
+        {
+            "id": 5,
+            "question": "Who is the Compliance Officer of the company?",
+            "expected_source": "tcs.pdf",
+            "expected_answer": "The specific individual named in the most recent corporate governance filing."
+        },
+        {
+            "id": 6,
+            "question": "What are the rules for social media usage regarding company matters?",
+            "expected_source": "social_media_policy.pdf",
+            "expected_answer": "Do not disclose confidential information or represent the company without authorization."
+        },
+        {
+            "id": 7,
+            "question": "How do I claim reimbursement for business travel expenses?",
+            "expected_source": "finance_policy.pdf",
+            "expected_answer": "Submit claims through the portal with receipts within 30 days of the travel."
+        },
+        {
+            "id": 8,
+            "question": "What is the notice period for senior managers?",
+            "expected_source": "hr_handbook.pdf",
+            "expected_answer": "3 months notice is required for senior management roles."
+        },
+        {
+            "id": 9,
+            "question": "Are there any health insurance benefits for family members?",
+            "expected_source": "benefits.pdf",
+            "expected_answer": "Yes, spouse and up to two children are covered under the standard plan."
+        },
+        {
+            "id": 10,
+            "question": "What is the company's stance on diversity and inclusion?",
+            "expected_source": "culture.pdf",
+            "expected_answer": "Zero tolerance for discrimination and active support for a diverse workforce."
+        }
+    ]
+}
