@@ -50,10 +50,10 @@ def execute_send_email(recipient: str, subject: str, message: str) -> str:
     smtp_pass = _get_setting("email_password")
     
     if not (smtp_server and smtp_user and smtp_pass):
-        LOGGER.warning("Email settings not configured. Falling back to mock email.")
-        print(f"\n--- MOCK EMAIL SENT ---")
-        print(f"To: {recipient}\nSubject: {subject}\nMessage: {message}")
-        print(f"-----------------------\n")
+        LOGGER.warning("Email credentials not configured. Using Mock fallback.")
+        LOGGER.info("\n--- MOCK EMAIL SENT ---")
+        LOGGER.info(f"To: {recipient}\nSubject: {subject}\nMessage: {message}")
+        LOGGER.info("-----------------------\n")
         return f"SUCCESS: Email credentials not configured. Mock email sent to {recipient}."
 
     try:
