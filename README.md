@@ -1,4 +1,4 @@
-# 🌌 NexusAI: Enterprise Agentic RAG Orchestrator
+#  NexusAI: Enterprise Agentic RAG Orchestrator
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
 ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=ffee00)
@@ -12,7 +12,7 @@ NexusAI is a production-grade **Multi-Agent Agentic RAG** system designed for co
 
 ---
 
-## 🧠 Core Implementation Details
+##  Core Implementation Details
 
 ### 1. Agentic Orchestration (CEO Pattern)
 At the heart of NexusAI is a **Supervisor Agent** that acts as an intelligent router.
@@ -30,7 +30,7 @@ At the heart of NexusAI is a **Supervisor Agent** that acts as an intelligent ro
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Orchestration**: LangGraph, LangChain (Python)
 - **Frontend**: Next.js 14, TypeScript, Lucide Icons, Vanilla CSS (Stripe-style)
@@ -40,7 +40,7 @@ At the heart of NexusAI is a **Supervisor Agent** that acts as an intelligent ro
 
 ---
 
-## 🚀 Setup & Installation
+##  Setup & Installation
 
 ### 1. Backend Setup
 1. **Activate Environment**:
@@ -72,7 +72,7 @@ At the heart of NexusAI is a **Supervisor Agent** that acts as an intelligent ro
 
 ---
 
-## 📐 Architecture Overview
+##  Architecture Overview
 
 ```mermaid
 graph TD
