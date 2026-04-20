@@ -1,6 +1,6 @@
 import logging
 from langgraph.prebuilt import create_react_agent
-from tools.email_tool import send_email
+from tools.email_tool import prepare_email_draft, execute_send_email
 from llm.factory import get_llm_with_failover
 
 LOGGER = logging.getLogger(__name__)
@@ -8,11 +8,16 @@ LOGGER = logging.getLogger(__name__)
 class ToolAgent:
     def __init__(self):
         self.llm = get_llm_with_failover()
-        self.tools = [send_email]
+        self.tools = [prepare_email_draft, execute_send_email]
         
-        system_prompt = "You are an action-oriented workflow agent. Use your tools to fulfill the user's request. Confirm when actions (e.g. emails) are complete."
+        system_prompt = (
+            "You are a highly capable Action Agent with direct access to Email tools. "
+            "You CAN send emails directly to recipients using 'execute_send_email'. "
+            "POLICY: Always use 'prepare_email_draft' FIRST to propose a draft. "
+            "AFTER the user confirms (checks conversation history for 'Yes' or 'Go ahead'), "
+            "you MUST immediately call 'execute_send_email' to finalize the task."
+        )
         
-        # In LangGraph prebuilt v1.0.10, the explicit argument for the system prompt is just 'prompt'
         self.agent_executor = create_react_agent(
             model=self.llm, 
             tools=self.tools, 
@@ -22,15 +27,21 @@ class ToolAgent:
     def run(self, message: str, history: str = "") -> dict:
         LOGGER.info("Tool Agent processing trigger.")
         try:
-            # LangGraph standard invoke shape 
-            res = self.agent_executor.invoke({"messages": [("user", message)]})
+            # Simplify: Only use the last 2 turns of history if possible, or just the current message
+            # For now, we'll keep the full history but label it more clearly
+            combined_input = f"HISTORY:\n{history}\n\nUSER_REQUEST: {message}"
             
-            # Extract final message from trajectory
+            res = self.agent_executor.invoke({"messages": [("user", combined_input)]})
+            
             final_answer = res["messages"][-1].content
             return {
                 "answer": final_answer,
-                "source": "Tool Execution: Email"
+                "source": "Workflow Engine"
             }
         except Exception as e:
-            LOGGER.exception("Tool Agent failed.")
-            return {"answer": f"Action failed. {str(e)}", "source": "error"}
+            LOGGER.error(f"Tool Agent runtime error: {type(e).__name__} - {str(e)}")
+            # If it's a tool-specific error, try to return a graceful answer
+            return {
+                "answer": f"I encountered a technical issue while processing that action: {str(e)}. However, I can still help you with information.",
+                "source": "System Notice"
+            }

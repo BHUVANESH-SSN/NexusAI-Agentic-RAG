@@ -11,10 +11,10 @@ class Supervisor:
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a classification supervisor.
 Analyze the user's query and strictly categorize it into exactly one of these labels:
-- 'retriever' : if asking about company policies, documents, generic knowledge.
-- 'db' : if asking about structured data, employees, recent violations, database records.
-- 'tool' : if asking to send an email or report.
-- 'chat' : for general greetings or fallback chit-chat.
+- 'retriever' : if asking about company policies, internal documents, or specific corporate facts.
+- 'db' : if asking about structured records, employee data, or payroll tables.
+- 'tool' : if asking to perform an action (sending email, generating reports).
+- 'chat' : for greetings, personal follow-up questions ("what did I ask?", "tell me more"), or general reasoning.
 
 Respond ONLY with the exact lowercase label. Nothing else."""),
             ("human", "{input}")

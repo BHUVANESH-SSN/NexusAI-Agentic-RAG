@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 
 type Message = {
@@ -13,9 +13,38 @@ export default function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [isIdReady, setIsIdReady] = useState(false);
+
+    // Load session and messages from localStorage on mount
+    useEffect(() => {
+        let currentSession = localStorage.getItem('nexus_session_id');
+        if (!currentSession) {
+            currentSession = 'session_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+            localStorage.setItem('nexus_session_id', currentSession);
+        }
+        setSessionId(currentSession);
+        setIsIdReady(true);
+
+        const savedMessages = localStorage.getItem('nexus_chat_messages');
+        if (savedMessages) {
+            try {
+                setMessages(JSON.parse(savedMessages));
+            } catch (e) {
+                console.error("Failed to parse saved messages");
+            }
+        }
+    }, []);
+
+    // Save messages to localStorage whenever they change
+    useEffect(() => {
+        if (messages.length > 0) {
+            localStorage.setItem('nexus_chat_messages', JSON.stringify(messages));
+        }
+    }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || !isIdReady || !sessionId) return;
 
         const userMessage = input.trim();
         setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
@@ -27,8 +56,8 @@ export default function ChatInterface() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_id: 'demo_user',
-                    session_id: 'demo_session',
+                    user_id: 'guest_user', // Will handle proper logins later
+                    session_id: sessionId,
                     message: userMessage
                 })
             });
@@ -41,9 +70,11 @@ export default function ChatInterface() {
                     source: data.source
                 }]);
             } else {
+                const errData = await res.json().catch(() => ({ detail: "Unknown error" }));
+                console.error("Chat Error Response:", errData);
                 setMessages(prev => [...prev, {
                     role: 'bot',
-                    text: "Error communicating with the backend. Please ensure the FastAPI server is running."
+                    text: `Error: ${errData.detail || "Connection failed to backend"}`
                 }]);
             }
         } catch (error) {
@@ -53,6 +84,19 @@ export default function ChatInterface() {
             }]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Helper to clear chat session
+    const clearSession = () => {
+        if (window.confirm("Are you sure you want to clear your chat history?")) {
+            setMessages([]);
+            localStorage.removeItem('nexus_chat_messages');
+
+            // Optionally cycle the session ID so backend starts fresh too
+            const newSession = 'session_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+            localStorage.setItem('nexus_session_id', newSession);
+            setSessionId(newSession);
         }
     };
 
@@ -66,9 +110,17 @@ export default function ChatInterface() {
                             <span className="font-mono text-xs text-[#F59E0B] tracking-widest uppercase">Chat Interface</span>
                         </div>
                         <h2 className="font-display text-4xl font-bold text-white tracking-tight">
-                            Cognito <span className="text-[#F59E0B]">Assistant</span>
+                            NexusAI <span className="text-[#F59E0B]">Chat</span>
                         </h2>
                     </div>
+                    {messages.length > 0 && (
+                        <button
+                            onClick={clearSession}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                            Clear History
+                        </button>
+                    )}
                 </header>
 
                 <div className="flex-1 flex flex-col bg-[#0d1424]/70 backdrop-blur-xl border border-white/[0.08] rounded-[32px] overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_8px_32px_rgba(0,0,0,0.4)] relative">

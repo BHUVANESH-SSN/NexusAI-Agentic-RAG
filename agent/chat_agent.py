@@ -25,8 +25,11 @@ class ChatAgent:
                 ("system", _SYSTEM_PROMPT),
                 (
                     "human",
-                    "Conversation history:\n{history}\n\n"
-                    "User message: {message}",
+                    "### CONVERSATION HISTORY\n"
+                    "{history}\n"
+                    "--- END OF HISTORY ---\n\n"
+                    "LATEST USER MESSAGE: {message}\n"
+                    "INSTRUCTION: If the user is asking about the history above, answer using that history. If it is a greeting, reply accordingly."
                 ),
             ]
         )

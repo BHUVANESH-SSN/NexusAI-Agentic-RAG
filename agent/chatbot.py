@@ -10,6 +10,7 @@ from agents.validation_agent import ValidationAgent
 from agent.retriever_agent import RetrieverAgent
 from agent.chat_agent import ChatAgent
 from memory.redis_memory import RedisSessionManager
+from memory.semantic_cache import SemanticCache
 from llm.factory import get_llm_with_failover
 
 LOGGER = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class EnterpriseChatbot:
     
     def __init__(self, retriever):
         self.memory = RedisSessionManager(ttl_seconds=3600)
+        self.semantic_cache = SemanticCache(threshold=0.96)
         self.llm = get_llm_with_failover()
         
         self.supervisor = Supervisor()
@@ -37,8 +39,16 @@ class EnterpriseChatbot:
     def process_message(self, user_id: str, session_id: str, message: str) -> Dict[str, Any]:
         LOGGER.info("Process User=%s, Session=%s", user_id, session_id)
         
+        # 0. Check Semantic Cache
+        cached_result = self.semantic_cache.check(message)
+        if cached_result:
+            # We still want to save the turn to chat history for continuity
+            self.memory.save_turn(user_id, session_id, message, cached_result.get("answer", ""))
+            return cached_result
+
         # 1. Load History
         history_str = self.memory.get_history_string(user_id, session_id)
+        LOGGER.info("MEMORY_TRACE: Session=%s | History='%s'", session_id, history_str)
         
         # 2. Supervisor Route Determination
         route = self.supervisor.route(message)
@@ -65,7 +75,7 @@ class EnterpriseChatbot:
             agent_result = {"answer": str(agent_result), "source": route}
             
         # 4. Validation (Strict Ending Step)
-        final_result = self.validator.validate(message, agent_result)
+        final_result = self.validator.validate(message, agent_result, history=history_str)
         
         # 5. Persist the turn
         self.memory.save_turn(
@@ -74,5 +84,8 @@ class EnterpriseChatbot:
             user_message=message,
             assistant_message=final_result.get("answer", "")
         )
+        
+        # 6. Save to Semantic Cache for future speedups
+        self.semantic_cache.save(message, final_result)
         
         return final_result

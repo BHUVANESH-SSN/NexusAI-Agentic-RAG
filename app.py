@@ -7,15 +7,19 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from redis import Redis
 
-from agent.chatbot import EnterpriseChatbot
+from agents.chatbot import EnterpriseChatbot
 from llm.factory import configure_logging, get_settings
 from rag.retriever import CompanyRetriever
 from utils.encryption import encrypt_value, decrypt_value
 import sqlite3
 import os
+import shutil
 
 configure_logging()
 LOGGER = logging.getLogger(__name__)
+
+# --- Global State ---
+INDEXING_QUEUE = set()
 
 # --- Models ---
 
@@ -34,6 +38,22 @@ class SettingsPayload(BaseModel):
     email_smtp: str = ""
     email_user: str = ""
     email_password: str = ""
+
+def build_indices_and_refresh(app):
+    """Background task to rebuild index and tell chatbot to reload."""
+    try:
+        from rag.ingestion import build_indices
+        LOGGER.info("Starting background rebuild of indices...")
+        build_indices()
+        # Clean the queue
+        INDEXING_QUEUE.clear()
+        # Refresh the retriever cache in the live chatbot
+        if hasattr(app.state, "chatbot"):
+            app.state.chatbot.retriever_agent.retriever.clear_cache()
+            LOGGER.info("Chatbot retriever cache cleared successfully.")
+    except Exception as e:
+        LOGGER.error(f"Background indexing failed: {e}")
+        INDEXING_QUEUE.clear()
 
 # --- Rate Limiting ---
 
@@ -113,6 +133,10 @@ async def chat(payload: ChatRequest, request: Request):
         r.expire(key, 60)
     if req_count > 10:
         raise HTTPException(status_code=429, detail="Rate limit exceeded.")
+
+    # Process through chatbot
+    history_len = len(request.app.state.chatbot.memory.get_messages(payload.user_id, payload.session_id))
+    LOGGER.info("Chat Request: Session=%s, HistoryMsgs=%d", payload.session_id, history_len if history_len > 0 else "EMPTY")
 
     try:
         result = request.app.state.chatbot.process_message(
@@ -197,10 +221,10 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
             buffer.write(await file.read())
             
         # Rebuild RAG indices in background
-        from rag.ingestion import build_indices
-        background_tasks.add_task(build_indices)
+        INDEXING_QUEUE.add(file.filename)
+        background_tasks.add_task(build_indices_and_refresh, app)
         
-        return {"status": "success", "message": f"Successfully uploaded {file.filename} and queued for indexing."}
+        return {"status": "success", "message": f"Successfully uploaded {file.filename} and queued for re-indexing."}
     except Exception as e:
         LOGGER.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload document")
@@ -214,11 +238,57 @@ def list_documents():
     docs = []
     vector_exists = settings.vector_store_path.exists()
     
-    for pdf in settings.docs_path.glob("*.pdf"):
-        docs.append({
-            "name": pdf.name,
-            "status": "Indexed" if vector_exists else "Processing",
-            "size": pdf.stat().st_size
-        })
+    for ext in ["*.pdf", "*.md", "*.docx", "*.csv"]:
+        for doc in settings.docs_path.glob(ext):
+            is_processing = doc.name in INDEXING_QUEUE
+            docs.append({
+                "name": doc.name,
+                "status": "Processing" if is_processing else ("Indexed" if vector_exists else "Pending"),
+                "size": doc.stat().st_size
+            })
     return {"documents": docs}
+
+@app.delete("/documents/{filename}")
+async def delete_document(filename: str, background_tasks: BackgroundTasks):
+    settings = get_settings()
+    file_path = settings.docs_path / filename
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    try:
+        file_path.unlink()
+        
+        # Check if dir is empty
+        remaining_files = list(settings.docs_path.glob("*.pdf"))
+        if not remaining_files:
+            if settings.vector_store_path.exists():
+                shutil.rmtree(settings.vector_store_path)
+            return {"status": "success", "message": f"Deleted {filename} and cleared empty knowledge base."}
+            
+        # If not empty, rebuild FAISS
+        from rag.ingestion import build_indices
+        background_tasks.add_task(build_indices)
+        return {"status": "success", "message": f"Deleted {filename} and queued index rebuild."}
+    except Exception as e:
+        LOGGER.error(f"Failed to delete document {filename}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete document")
+
+@app.delete("/documents")
+async def clear_all_documents():
+    settings = get_settings()
+    try:
+        # Delete all pdfs
+        if settings.docs_path.exists():
+            for pdf in settings.docs_path.glob("*.pdf"):
+                pdf.unlink()
+                
+        # Delete faiss index
+        if settings.vector_store_path.exists():
+            shutil.rmtree(settings.vector_store_path)
+            
+        return {"status": "success", "message": "All documents and knowledge bases cleared."}
+    except Exception as e:
+        LOGGER.error(f"Failed to clear knowledge base: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear knowledge base")
 

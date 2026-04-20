@@ -44,12 +44,24 @@ class CompanyRetriever:
         prompt = ChatPromptTemplate.from_template(_REWRITE_PROMPT)
         self.rewriter_chain = prompt | llm | StrOutputParser()
 
+    def clear_cache(self):
+        """Clears internal index caches to force a reload from disk on next query."""
+        LOGGER.info("Clearing retriever index cache for reload.")
+        self._vector_store = None
+        self._bm25_retriever = None
+
     def _load_indices(self):
         """Loads both FAISS and BM25 indices."""
         # 1. Load FAISS (Dense)
         if self._vector_store is None:
             if not self.settings.vector_store_path.exists():
                 raise FileNotFoundError(f"FAISS index not found at {self.settings.vector_store_path}")
+            
+            index_file = self.settings.vector_store_path / "index.faiss"
+            if index_file.exists():
+                import os, time
+                mtime = os.path.getmtime(index_file)
+                LOGGER.info("FAISS index file timestamp: %s", time.ctime(mtime))
             
             LOGGER.info("Loading FAISS index from %s", self.settings.vector_store_path)
             self._vector_store = FAISS.load_local(
