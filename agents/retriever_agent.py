@@ -57,7 +57,6 @@ class RetrieverAgent:
         ).partial(format_instructions=self.parser.get_format_instructions())
         
         self.chain = self.prompt | llm
-base_dir = "/"
 
     def _extract_source_names(self, documents: List[Any]) -> str:
         if not documents:

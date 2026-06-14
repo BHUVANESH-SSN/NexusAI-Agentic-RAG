@@ -1,0 +1,40 @@
+name: CI
+
+# Boot guard: fail the build if any backend module is non-importable.
+# This single check would have caught C1 (the stray module-level `base_dir = "/"`
+# wedged into a class body that broke `import app` with an IndentationError).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  import-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile all backend modules (syntax guard)
+        run: |
+          python -m py_compile \
+            agents/*.py app.py router/*.py rag/*.py \
+            memory/*.py llm/*.py tools/*.py utils/*.py
+
+      - name: Import app (boot guard)
+        # Must succeed even without keys/Redis — the app degrades gracefully.
+        # A non-importable file here fails the build.
+        run: python -c "import app"
