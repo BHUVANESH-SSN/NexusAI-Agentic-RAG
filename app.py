@@ -258,9 +258,12 @@ async def delete_document(filename: str, background_tasks: BackgroundTasks):
         
     try:
         file_path.unlink()
-        
+
         # Check if dir is empty
-        remaining_files = list(settings.docs_path.glob("*.pdf"))
+        remaining_files = [
+            f for ext in ["*.pdf", "*.md", "*.docx", "*.csv"]
+            for f in settings.docs_path.glob(ext)
+        ]
         if not remaining_files:
             if settings.vector_store_path.exists():
                 shutil.rmtree(settings.vector_store_path)
@@ -278,10 +281,11 @@ async def delete_document(filename: str, background_tasks: BackgroundTasks):
 async def clear_all_documents():
     settings = get_settings()
     try:
-        # Delete all pdfs
+        # Delete all documents in supported formats
         if settings.docs_path.exists():
-            for pdf in settings.docs_path.glob("*.pdf"):
-                pdf.unlink()
+            for ext in ["*.pdf", "*.md", "*.docx", "*.csv"]:
+                for doc_file in settings.docs_path.glob(ext):
+                    doc_file.unlink()
                 
         # Delete faiss index
         if settings.vector_store_path.exists():
