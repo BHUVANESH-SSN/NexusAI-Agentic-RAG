@@ -18,7 +18,7 @@ without configured keys is exactly the C3 gap we are closing.
 import hmac
 import logging
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Header, HTTPException, status
 
 from llm.factory import get_settings
 

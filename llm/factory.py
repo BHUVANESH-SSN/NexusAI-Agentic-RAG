@@ -28,6 +28,16 @@ class Settings:
     failover_providers: List[str]
     redis_url: str
     log_level: str
+    # --- Security fields ---
+    api_key: str
+    admin_api_key: str
+    cors_allowed_origins: List[str]
+    allowed_upload_extensions: List[str]
+    max_upload_bytes: int
+    allowed_email_domains: List[str]
+    email_send_cap_per_hour: int
+    db_readonly_uri: str
+    rate_limit_per_minute: int
 
 
 def _resolve_path(value: Optional[str], default: Path) -> Path:
@@ -72,6 +82,28 @@ def get_settings() -> Settings:
         failover_providers=os.getenv("FAILOVER_PROVIDERS", "groq,openai").lower().split(","),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        # --- Security ---
+        api_key=os.getenv("API_KEY", "").strip(),
+        admin_api_key=os.getenv("ADMIN_API_KEY", "").strip(),
+        cors_allowed_origins=[
+            o.strip()
+            for o in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+            if o.strip()
+        ],
+        allowed_upload_extensions=[
+            e.strip().lower()
+            for e in os.getenv("ALLOWED_UPLOAD_EXTENSIONS", ".pdf,.md,.docx,.csv").split(",")
+            if e.strip()
+        ],
+        max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024))),
+        allowed_email_domains=[
+            d.strip().lower()
+            for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",")
+            if d.strip()
+        ],
+        email_send_cap_per_hour=int(os.getenv("EMAIL_SEND_CAP_PER_HOUR", "10")),
+        db_readonly_uri=os.getenv("DB_READONLY_URI", "").strip(),
+        rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "10")),
     )
 
 
