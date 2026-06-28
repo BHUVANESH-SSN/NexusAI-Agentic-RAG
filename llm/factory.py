@@ -36,6 +36,7 @@ class Settings:
     max_upload_bytes: int
     allowed_email_domains: List[str]
     email_send_cap_per_hour: int
+    db_path: Path
     db_readonly_uri: str
     rate_limit_per_minute: int
 
@@ -102,6 +103,10 @@ def get_settings() -> Settings:
             if d.strip()
         ],
         email_send_cap_per_hour=int(os.getenv("EMAIL_SEND_CAP_PER_HOUR", "10")),
+        db_path=_resolve_path(
+            os.getenv("DB_PATH"),
+            BASE_DIR / "db" / "company.db",
+        ),
         db_readonly_uri=os.getenv("DB_READONLY_URI", "").strip(),
         rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "10")),
     )

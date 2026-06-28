@@ -1,6 +1,5 @@
 import collections
 import logging
-import os
 import smtplib
 import sqlite3
 import time
@@ -17,10 +16,7 @@ _SEND_LOG: collections.deque = collections.deque()
 
 
 def _get_db_path() -> str:
-    settings = get_settings()
-    if hasattr(settings, "db_path"):
-        return str(settings.db_path)
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "db", "company.db")
+    return str(get_settings().db_path)
 
 
 def _get_setting(key: str) -> str:

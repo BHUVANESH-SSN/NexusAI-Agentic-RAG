@@ -1,4 +1,5 @@
 import logging
+import os
 import sqlite3
 
 from langchain_community.agent_toolkits import create_sql_agent
@@ -11,16 +12,14 @@ LOGGER = logging.getLogger(__name__)
 
 FORBIDDEN_TABLES = {"user_settings"}
 
-DB_PATH = None  # resolved lazily via settings so tests can override
 
 def _get_db_path() -> str:
-    return str(get_settings().db_path) if hasattr(get_settings(), "db_path") else \
-        __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__file__)), "db", "company.db")
+    return str(get_settings().db_path)
 
 
 def ensure_db():
     path = _get_db_path()
-    if not __import__("os").path.exists(path):
+    if not os.path.exists(path):
         try:
             from db.init_db import init_db
             init_db()
@@ -30,11 +29,9 @@ def ensure_db():
 
 def _resolve_uri() -> str:
     settings = get_settings()
-    # 1. Prefer settings-level read-only URI (set via ADMIN /settings route)
     if settings.db_readonly_uri:
         return settings.db_readonly_uri
 
-    # 2. Try encrypted MySQL URI from user_settings table
     try:
         path = _get_db_path()
         conn = sqlite3.connect(path)
@@ -50,9 +47,7 @@ def _resolve_uri() -> str:
     except Exception as e:
         LOGGER.error("Error fetching mysql_uri from settings: %s", e)
 
-    # 3. SQLite read-only mode
-    path = _get_db_path()
-    return f"sqlite:///file:{path}?mode=ro&uri=true"
+    return f"sqlite:///file:{_get_db_path()}?mode=ro&uri=true"
 
 
 class DBAgent:
@@ -62,16 +57,16 @@ class DBAgent:
 
         uri = _resolve_uri()
         try:
-            self.db = SQLDatabase.from_uri(
-                uri,
-                ignore_tables=list(FORBIDDEN_TABLES),
-            )
+            self.db = SQLDatabase.from_uri(uri, ignore_tables=list(FORBIDDEN_TABLES))
         except Exception:
-            # read-only mode may not be available on all sqlite builds; fall back gracefully
             path = _get_db_path()
+            LOGGER.error(
+                "Could not open SQLite in read-only mode (SQLite build may not support URI mode). "
+                "Falling back to read-write connection — DB mutations are possible. "
+                "Upgrade SQLite or set DB_READONLY_URI to a read-only MySQL replica."
+            )
             self.db = SQLDatabase.from_uri(
-                f"sqlite:///{path}",
-                ignore_tables=list(FORBIDDEN_TABLES),
+                f"sqlite:///{path}", ignore_tables=list(FORBIDDEN_TABLES)
             )
 
         self.agent_executor = create_sql_agent(

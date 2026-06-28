@@ -84,7 +84,6 @@ def _enforce_rate_limit(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
     retriever = CompanyRetriever()
     app.state.chatbot = EnterpriseChatbot(retriever=retriever)
     LOGGER.info("Application startup complete with EnterpriseChatbot.")
@@ -205,7 +204,7 @@ def update_user_settings(
 # --- Document Management ---
 
 def _safe_filename(filename: str) -> str:
-    return os.path.basename(filename).replace("..", "").strip()
+    return os.path.basename(filename).strip()
 
 @app.post("/upload")
 async def upload_document(
