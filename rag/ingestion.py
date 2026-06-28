@@ -1,6 +1,5 @@
 import logging
 import pickle
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 

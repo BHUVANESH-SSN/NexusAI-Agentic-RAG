@@ -151,8 +151,7 @@ async def chat(
 # --- Settings ---
 
 def get_settings_db():
-    db_path = os.path.join(os.path.dirname(__file__), "db", "company.db")
-    return sqlite3.connect(db_path)
+    return sqlite3.connect(str(get_settings().db_path))
 
 _SECRET_KEYS = {"mysql_uri", "email_smtp", "email_user", "email_password"}
 
