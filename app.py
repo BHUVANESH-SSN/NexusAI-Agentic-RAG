@@ -25,9 +25,9 @@ INDEXING_QUEUE: set = set()
 # --- Models ---
 
 class ChatRequest(BaseModel):
-    user_id: str = Field(..., min_length=1)
-    session_id: str = Field(..., min_length=1)
-    message: str = Field(..., min_length=1)
+    user_id: str = Field(..., min_length=1, max_length=128)
+    session_id: str = Field(..., min_length=1, max_length=128)
+    message: str = Field(..., min_length=1, max_length=4096)
 
 class ChatResponse(BaseModel):
     answer: str
@@ -84,6 +84,9 @@ def _enforce_rate_limit(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from utils.encryption import validate_key
+    validate_key()
+    settings = get_settings()
     retriever = CompanyRetriever()
     app.state.chatbot = EnterpriseChatbot(retriever=retriever)
     LOGGER.info("Application startup complete with EnterpriseChatbot.")
