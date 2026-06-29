@@ -80,6 +80,30 @@ def _enforce_rate_limit(request: Request) -> None:
         pass  # Redis down — degrade gracefully, do not block requests
 
 
+# --- Prompt Injection Detection ---
+
+_INJECTION_PATTERNS = [
+    "ignore previous instructions",
+    "ignore all instructions",
+    "disregard previous",
+    "system prompt",
+    "you are now",
+    "jailbreak",
+    "do anything now",
+    "dan mode",
+]
+
+def _check_for_injection(message: str) -> None:
+    lowered = message.lower()
+    for pattern in _INJECTION_PATTERNS:
+        if pattern in lowered:
+            LOGGER.warning("Possible prompt injection blocked: %r", message[:120])
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Message contains disallowed content.",
+            )
+
+
 # --- Lifespan ---
 
 @asynccontextmanager
@@ -128,6 +152,7 @@ async def chat(
     _identity: str = Depends(require_identity),
 ):
     _enforce_rate_limit(request)
+    _check_for_injection(payload.message)
 
     try:
         result = request.app.state.chatbot.process_message(
