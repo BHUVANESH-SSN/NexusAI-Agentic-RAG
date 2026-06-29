@@ -34,6 +34,7 @@ class CompanyRetriever:
         self._qdrant_client = None
         self._vector_store = None
         self._bm25_retriever = None
+        self._parent_store = None
 
         llm = get_llm_with_failover()
         prompt = ChatPromptTemplate.from_template(_REWRITE_PROMPT)
@@ -44,6 +45,7 @@ class CompanyRetriever:
         self._qdrant_client = None
         self._vector_store = None
         self._bm25_retriever = None
+        self._parent_store = None
 
     def _load_indices(self):
         if self._vector_store is None:
@@ -68,6 +70,10 @@ class CompanyRetriever:
                 from langchain_community.retrievers import BM25Retriever
                 self._bm25_retriever = BM25Retriever.from_documents(chunks)
                 self._bm25_retriever.k = max(self.settings.retriever_top_k * 4, 10)
+
+        if self._parent_store is None:
+            from rag.parent_store import ParentStore
+            self._parent_store = ParentStore(self.settings.vector_store_path)
 
     def _rewrite_query(self, message: str, history: str) -> str:
         try:
@@ -114,7 +120,24 @@ class CompanyRetriever:
 
         final = candidates[:self.settings.retriever_top_k]
         LOGGER.info("Stage 2: top %d selected.", self.settings.retriever_top_k)
-        return final
+
+        # Stage 5: Expand child chunks → parent context
+        expanded: List[Document] = []
+        seen_parents: set = set()
+        for doc in final:
+            pid = doc.metadata.get("parent_id")
+            if pid and pid not in seen_parents and self._parent_store:
+                parent_text = self._parent_store.get(pid)
+                if parent_text:
+                    expanded.append(Document(
+                        page_content=parent_text,
+                        metadata={**doc.metadata, "expanded_to_parent": True},
+                    ))
+                    seen_parents.add(pid)
+                    continue
+            expanded.append(doc)
+        LOGGER.info("Stage 5: %d docs after parent expansion.", len(expanded))
+        return expanded
 
 
 def format_documents(documents: List[Document]) -> str:

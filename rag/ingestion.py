@@ -63,41 +63,60 @@ def load_documents():
     return documents
 
 
-def split_documents(documents):
-    """Chunk with RecursiveCharacterTextSplitter using settings for size/overlap."""
+def split_parent_child(documents):
+    """Return (parent_texts dict, child_chunks list).
+
+    Parent chunks (800 tokens): passed to the LLM as context.
+    Child chunks (200 tokens): embedded and stored in Qdrant for retrieval precision.
+    Each child carries a parent_id in its metadata.
+    """
     from langchain_text_splitters import RecursiveCharacterTextSplitter
-    settings = get_settings()
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=settings.chunk_size,
-        chunk_overlap=settings.chunk_overlap,
-        separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
+    from rag.parent_store import ParentStore
+
+    parent_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=800, chunk_overlap=80,
+        separators=["\n\n", "\n", ". ", " ", ""],
     )
-    chunks = splitter.split_documents(documents)
+    child_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=200, chunk_overlap=20,
+        separators=["\n\n", "\n", ". ", " ", ""],
+    )
+
+    child_chunks = []
+    parent_texts: dict = {}
+
+    for parent_doc in parent_splitter.split_documents(documents):
+        parent_id = ParentStore.new_id()
+        parent_texts[parent_id] = parent_doc.page_content
+        for child in child_splitter.split_documents([parent_doc]):
+            child.metadata["parent_id"] = parent_id
+            child_chunks.append(child)
+
     LOGGER.info(
-        "Splitting complete: %d chunks from %d docs (size=%d, overlap=%d)",
-        len(chunks), len(documents), settings.chunk_size, settings.chunk_overlap,
+        "Parent-child split: %d parents → %d children from %d docs",
+        len(parent_texts), len(child_chunks), len(documents),
     )
-    return chunks
+    return parent_texts, child_chunks
 
 
 def build_indices():
     from rag.qdrant_store import get_qdrant_client, get_vector_store, COLLECTION_NAME, VECTOR_DIM
     from qdrant_client.models import VectorParams, Distance
+    from rag.parent_store import ParentStore
 
     settings = get_settings()
     settings.vector_store_path.mkdir(parents=True, exist_ok=True)
 
     documents = load_documents()
-    chunks = split_documents(documents)
+    if not documents:
+        LOGGER.warning("No documents found — skipping index build.")
+        return {"documents": 0, "chunks": 0, "parents": 0, "index_path": str(settings.vector_store_path)}
 
-    if not chunks:
-        LOGGER.warning("No chunks produced — skipping index build.")
-        return {"documents": 0, "chunks": 0, "index_path": str(settings.vector_store_path)}
-
+    parent_texts, child_chunks = split_parent_child(documents)
     embeddings = get_embeddings()
 
-    # 1. Build Qdrant (Dense)
-    LOGGER.info("Building Qdrant index with %d chunks", len(chunks))
+    # 1. Qdrant — child chunks
+    LOGGER.info("Building Qdrant index with %d child chunks", len(child_chunks))
     client = get_qdrant_client(settings.vector_store_path)
     existing = {c.name for c in client.get_collections().collections}
     if COLLECTION_NAME in existing:
@@ -107,18 +126,25 @@ def build_indices():
         vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
     )
     vector_store = get_vector_store(client, embeddings)
-    vector_store.add_documents(chunks)
-    LOGGER.info("Qdrant index built.")
+    vector_store.add_documents(child_chunks)
 
-    # 2. Build BM25 (Sparse)
+    # 2. Parent store
+    store = ParentStore(settings.vector_store_path)
+    store.clear()
+    for pid, text in parent_texts.items():
+        store.save(pid, text)
+    LOGGER.info("Parent store saved: %d entries", len(parent_texts))
+
+    # 3. BM25 — child chunks
     bm25_path = settings.vector_store_path / "bm25_chunks.pkl"
     with open(bm25_path, "wb") as f:
-        pickle.dump(chunks, f)
-    LOGGER.info("BM25 index saved to %s", bm25_path)
+        pickle.dump(child_chunks, f)
+    LOGGER.info("BM25 index saved.")
 
     return {
         "documents": len(documents),
-        "chunks": len(chunks),
+        "chunks": len(child_chunks),
+        "parents": len(parent_texts),
         "index_path": str(settings.vector_store_path),
     }
 
