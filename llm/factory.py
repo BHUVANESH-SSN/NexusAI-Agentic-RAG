@@ -121,40 +121,45 @@ def configure_logging() -> None:
 
 
 def get_chat_model(provider: Optional[str] = None):
+    """Return a LangChain-compatible chat model via LiteLLM's unified interface."""
+    from langchain_community.chat_models import ChatLiteLLM
     settings = get_settings()
-    provider = provider or settings.llm_provider
+    provider = (provider or settings.llm_provider).strip().lower()
 
-    if provider == "groq":
-        from langchain_groq import ChatGroq
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise ValueError("GROQ_API_KEY is missing.")
-        return ChatGroq(model=settings.groq_model, temperature=settings.llm_temperature, max_retries=1)
-
-    if provider == "openai":
-        from langchain_openai import ChatOpenAI
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY is missing.")
-        return ChatOpenAI(model=settings.openai_model, temperature=settings.llm_temperature, max_retries=1)
-
-    if provider == "anthropic":
-        from langchain_anthropic import ChatAnthropic
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY is missing.")
-        return ChatAnthropic(model=settings.anthropic_model, temperature=settings.llm_temperature)
-
-    if provider == "bedrock":
-        from langchain_aws import ChatBedrock
-        return ChatBedrock(model_id=settings.bedrock_model_id, model_kwargs={"temperature": settings.llm_temperature})
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    model_map = {
+        "groq":      f"groq/{settings.groq_model}",
+        "openai":    f"openai/{settings.openai_model}",
+        "anthropic": f"anthropic/{settings.anthropic_model}",
+        "bedrock":   f"bedrock/{settings.bedrock_model_id}",
+    }
+    model_name = model_map.get(provider)
+    if not model_name:
+        raise ValueError(
+            f"Unsupported LLM provider: {provider!r}. Choose from: {list(model_map)}"
+        )
+    return ChatLiteLLM(model=model_name, temperature=settings.llm_temperature)
 
 
 def get_llm_with_failover():
-    """Returns the main configured model. Pluggable for future use."""
-    return get_chat_model()
+    """Try the configured provider, then each FAILOVER_PROVIDERS entry in order."""
+    settings = get_settings()
+    providers = [settings.llm_provider] + [
+        p for p in settings.failover_providers if p != settings.llm_provider
+    ]
+    last_exc: Exception = RuntimeError("No LLM providers configured.")
+    for provider in providers:
+        try:
+            model = get_chat_model(provider)
+            logging.getLogger(__name__).info("LLM provider resolved: %s", provider)
+            return model
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "LLM provider '%s' unavailable: %s. Trying next.", provider, exc
+            )
+            last_exc = exc
+    raise RuntimeError(
+        f"All LLM providers exhausted. Last error: {last_exc}"
+    ) from last_exc
 
 
 @lru_cache(maxsize=1)

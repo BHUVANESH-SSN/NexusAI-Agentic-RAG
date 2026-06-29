@@ -20,3 +20,4 @@ SQLAlchemy>=2.0.0
 cryptography>=42.0.0
 docx2txt>=0.8.0
 pandas>=2.0.0
+litellm>=1.0.0
