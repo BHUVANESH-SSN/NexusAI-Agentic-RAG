@@ -2,94 +2,201 @@
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
 ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=ffee00)
+![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-FF4747?style=for-the-badge&logo=qdrant&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
-NexusAI is a production-grade **Multi-Agent Agentic RAG** system designed for complex enterprise workflows. Unlike standard RAG loops, NexusAI utilizes a specialized **Supervisor-Worker** architecture to orchestrate document retrieval, structured data analysis, and external tool execution with human-in-the-loop safety.
+NexusAI is a production-grade **Multi-Agent Agentic RAG** system designed for complex enterprise workflows. A **Supervisor→Worker→Validator** pipeline routes every query to the right specialist agent, with a LangGraph-powered Corrective RAG loop for high-fidelity retrieval and a strict human-in-the-loop protocol for external actions.
+
+---
+
+## Architecture Overview
+
+```mermaid
+graph TD
+    User([User / Frontend]) -->|X-API-Key| GW{FastAPI Gateway}
+
+    GW --> RL[Rate Limiter\nIP-based · Redis]
+    GW --> PI[Prompt Injection\nGuard]
+    GW --> SC[(Semantic Cache\nRedis · cosine ≥0.96)]
+    GW --> HM[(Chat History\nRedis · 1h TTL)]
+    GW --> SUP{Supervisor Agent\nLLM classifier}
+
+    SUP -->|retriever| RA[Retriever Agent\nCorrective RAG]
+    SUP -->|db| DA[DB Agent\nSQL · read-only]
+    SUP -->|tool| TA[Tool Agent\nEmail HitL]
+    SUP -->|chat| CA[Chat Agent\nConversational]
+
+    RA --> RET[Hybrid Retriever\nQdrant dense + BM25 sparse\nCrossEncoder rerank]
+    RET --> PS[(Parent Store\nJSON · 800-token context)]
+    RET --> QD[(Qdrant\nFile-based · 200-token children)]
+    RET --> BM[(BM25 Index\npickle)]
+
+    DA --> SQ[(SQLite / MySQL\nFORBIDDEN: user_settings)]
+    TA --> EM[Email · Draft→Confirm→Send\nDomain allow-list · hourly cap]
+
+    RA & DA & TA & CA --> VAL{Validation Agent\nre-grounds answer}
+    VAL --> GW
+```
 
 ---
 
 ## Core Implementation Details
 
-### 1. Agentic Orchestration (CEO Pattern)
-At the heart of NexusAI is a **Supervisor Agent** that acts as an intelligent router.
-- **Dynamic Routing**: Instead of querying all data, the Supervisor classifies user intent and delegates to specialized workers: `Retriever Agent`, `DB Agent`, or `Tool Agent`.
-- **Validation Layer**: Every response passes through a **Validation Agent** (The Compliance Officer) which checks for hallucinations against the retrieved context and conversation history.
+### 1. Supervisor → Worker → Validator Pipeline
 
-### 2. Advanced RAG Pipeline
-- **Agentic Semantic Chunking**: We use embedding similarity analysis to detect "thematic breaks" in text. Documents are split where meaning shifts, not just at character limits, ensuring high-fidelity retrieval.
-- **Hybrid Retrieval**: Powered by **FAISS (Dense)** for semantic matching and **BM25 (Sparse)** for keyword precision, coupled with a Cross-Encoder Reranker.
-- **Semantic Caching**: A Redis-powered cache stores question embeddings. Similar repeating queries bypass the LLM entirely, reducing latency by 90% and cutting API costs.
+An LLM **Supervisor** classifies every message into one of four routes:
 
-### 3. Safety & Workflow
-- **Human-in-the-Loop (HitL)**: For external actions (like sending emails), the **Tool Agent** follows a strict `Draft -> Confirm -> Execute` protocol. No action is taken without explicit user consent.
-- **Multi-Format Support**: Native ingestion for `PDF`, `Markdown`, `DOCX`, and `CSV` files.
+| Route | Agent | Capability |
+|-------|-------|-----------|
+| `retriever` | `RetrieverAgent` | Corrective RAG over company documents |
+| `db` | `DBAgent` | Natural-language SQL over `company.db` / MySQL |
+| `tool` | `ToolAgent` | Email with Draft → Confirm → Execute HitL |
+| `chat` | `ChatAgent` | Conversational follow-ups and greetings |
+
+Every agent output passes through a **Validation Agent** that re-grounds and normalises the answer into `{answer, source, confidence}` before returning to the caller.
+
+### 2. Corrective RAG Loop (LangGraph)
+
+`RetrieverAgent` implements a self-correcting retrieval graph:
+
+```
+retrieve → grade each doc → enough relevant? ──yes──→ generate answer
+                                    │
+                                   no (< top_k relevant, iterations < 2)
+                                    │
+                              rewrite query → retrieve again
+```
+
+- **Grader**: LLM scores each retrieved document as relevant/irrelevant; fail-opens on error.
+- **Rewriter**: rewrites the query to be more search-friendly before retrying.
+- **Max 2 iterations** to bound latency.
+
+### 3. Parent-Child Chunking
+
+Documents are split at two granularities:
+
+| Level | Size | Purpose |
+|-------|------|---------|
+| **Child chunks** | 200 tokens | Stored in Qdrant — precise semantic retrieval |
+| **Parent chunks** | 800 tokens | Stored in `ParentStore` (JSON) — richer LLM context |
+
+After reranking, each retrieved child is swapped for its parent text before being passed to the answer LLM.
+
+### 4. Hybrid Retrieval
+
+`CompanyRetriever` runs a 4-stage pipeline on every query:
+
+1. **Query rewrite** — LLM expands the query (acronyms, keywords)
+2. **Dense search** — Qdrant `similarity_search` (top `retriever_top_k × 4`)
+3. **Sparse search** — BM25 over the same corpus
+4. **CrossEncoder rerank** — `cross-encoder/ms-marco-MiniLM-L-6-v2` scores all candidates; top `retriever_top_k` kept
+5. **Parent expansion** — child chunks replaced with their 800-token parents
+
+### 5. Security
+
+- **Two-tier auth**: `X-API-Key` or `Authorization: Bearer` — `require_identity` for `/chat`, `require_admin` for `/settings`, `/upload`, `/documents`
+- **Prompt injection guard**: 8-pattern substring check at the `/chat` boundary
+- **SQL lockdown**: read-only SQLite URI (`mode=ro`), `user_settings` table hidden from the SQL agent
+- **Upload sanitisation**: `os.path.basename`, extension allow-list, 20 MB size cap
+- **Email guardrails**: domain allow-list, hourly send cap, Draft → Confirm → Execute protocol
+- **Secret masking**: `/settings` GET returns `"***set***"` — never decrypts to caller
+- **Rate limiting**: Redis `INCR` keyed on source IP, 10 req/min default
+
+### 6. Scalability
+
+- **Semantic cache**: Redis cursor-based `SCAN` (not blocking `KEYS`); cosine similarity ≥ 0.96 skips the full pipeline
+- **Redis-backed indexing queue**: `INDEXING_QUEUE` is a Redis set (`nexusai:indexing_queue`) — safe across multiple workers
+- **Qdrant lock safety**: retriever releases the file lock (`client.close()`) before background re-indexing runs
+- **Pooled Redis client**: single connection reused across rate-limit and queue helpers
 
 ---
 
 ## Tech Stack
 
-- **Orchestration**: LangGraph, LangChain (Python)
-- **Frontend**: Next.js 14, TypeScript, Lucide Icons, Vanilla CSS (Stripe-style)
-- **Vector DB**: FAISS
-- **Memory/Cache**: Redis (Hybrid implementation with local fallback)
-- **LLMs**: Groq (Llama 3), OpenAI (GPT-4o-mini), Hugging Face (Embeddings)
+| Layer | Technology |
+|-------|-----------|
+| API | FastAPI (Python) |
+| Orchestration | LangGraph, LangChain |
+| LLMs | LiteLLM unified interface → Groq / OpenAI / Anthropic / Bedrock |
+| Embeddings | `all-MiniLM-L6-v2` (HuggingFace, CPU) |
+| Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` (CPU) |
+| Vector store | Qdrant (file-based, no server required) |
+| Sparse retrieval | BM25 (rank-bm25) |
+| Memory / Cache | Redis (graceful local-dict fallback) |
+| Frontend | Next.js 14, TypeScript, Tailwind CSS |
+| Tests | pytest (15 tests — import guard, encryption, auth, /health, contracts) |
+| Observability | LangSmith (optional, via `LANGSMITH_API_KEY`) |
+| Evaluation | RAGAS (faithfulness, answer relevancy, context recall) |
 
 ---
 
-##  Setup & Installation
+## Setup & Installation
 
-### 1. Backend Setup
-1. **Activate Environment**:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-2. **Install Core Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   pip install docx2txt pandas # For DOCX and CSV support
-   ```
-3. **Configure Environment**:
-   ```bash
-   cp .env.example .env # Add your GROQ_API_KEY / OPENAI_API_KEY
-   ```
-4. **Run Server**:
-   ```bash
-   python3 -m uvicorn app:app --reload
-   ```
+### Backend
 
-### 2. Frontend Setup
-1. **Install & Run**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
----
+cp .env.example .env   # fill in API keys and MASTER_ENCRYPTION_KEY
+python -m db.init_db   # seed demo DB
+python -m rag.ingestion  # build Qdrant + BM25 indices
 
-##  Architecture Overview
-
-```mermaid
-graph TD
-    User([User]) --> FastAPI{FastAPI Gateway}
-    FastAPI --> Memory[(Redis Persistence)]
-    FastAPI --> Cache[(Semantic Cache)]
-    FastAPI --> Supervisor{Supervisor Agent}
-    
-    Supervisor --> Retriever[Retriever Agent]
-    Supervisor --> DB[DB Agent]
-    Supervisor --> Tool[Tool Agent]
-    
-    Retriever --> VectorDB[(FAISS Index)]
-    DB --> SQL[(Company DB)]
-    Tool --> Email[Email System]
-    
-    Retriever & DB & Tool --> Validator{Validation Agent}
-    Validator --> User
+python -m uvicorn app:app --reload   # API on :8000
 ```
 
+**Required `.env` keys:**
+
+| Variable | Purpose |
+|----------|---------|
+| `MASTER_ENCRYPTION_KEY` | Fernet key — generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `API_KEY` | Caller key for `/chat` |
+| `ADMIN_API_KEY` | Admin key for `/settings`, `/upload`, `/documents` |
+| `LLM_PROVIDER` | `groq` \| `openai` \| `anthropic` \| `bedrock` |
+| `GROQ_API_KEY` / `OPENAI_API_KEY` | Provider key (whichever you use) |
+
+Optional: `REDIS_URL`, `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT`, `ALLOWED_EMAIL_DOMAINS`, `CORS_ALLOWED_ORIGINS`.
+
+### Frontend
+
+```bash
+cd frontend
+cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL and NEXT_PUBLIC_API_KEY
+npm install
+npm run dev   # on :3000
+```
+
+### Tests
+
+```bash
+source venv/bin/activate
+pytest tests/ -v
+```
+
+---
+
+## Request Flow
+
+```
+POST /chat
+  ├── Auth (require_identity)
+  ├── Rate limit (Redis · source IP)
+  ├── Prompt injection check
+  ├── Semantic cache lookup (Redis · cosine ≥ 0.96)  → hit: return cached
+  ├── Load chat history (Redis · 1h TTL)
+  ├── Supervisor routes → Worker agent
+  │     retriever → Corrective RAG loop (LangGraph)
+  │                   retrieve → grade → [rewrite →] generate
+  │     db        → SQL agent (read-only SQLite / MySQL)
+  │     tool      → Email agent (Draft → Confirm → Execute)
+  │     chat      → Conversational LLM
+  ├── Validation Agent (re-grounds answer)
+  ├── Save to Redis history + semantic cache
+  └── Return {answer, source, confidence}
+```
