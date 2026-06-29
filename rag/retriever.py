@@ -42,6 +42,11 @@ class CompanyRetriever:
 
     def clear_cache(self):
         LOGGER.info("Clearing retriever cache for reload.")
+        if self._qdrant_client is not None:
+            try:
+                self._qdrant_client.close()
+            except Exception:
+                pass
         self._qdrant_client = None
         self._vector_store = None
         self._bm25_retriever = None

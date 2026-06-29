@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiHeaders } from "@/lib/api";
 
 export default function SettingsPage() {
     const [status, setStatus] = useState<string>('');
@@ -15,7 +15,7 @@ export default function SettingsPage() {
     });
 
     useEffect(() => {
-        fetch(`${API_BASE_URL}/settings`)
+        fetch(`${API_BASE_URL}/settings`, { headers: apiHeaders() })
             .then(res => res.json())
             .then(data => {
                 if (data) {
@@ -42,7 +42,7 @@ export default function SettingsPage() {
         try {
             const res = await fetch(`${API_BASE_URL}/settings`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: apiHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(formData)
             });
             if (res.ok) {

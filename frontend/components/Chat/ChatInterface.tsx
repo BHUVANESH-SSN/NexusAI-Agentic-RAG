@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Send, Sparkles } from 'lucide-react';
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiHeaders } from "@/lib/api";
 
 type Message = {
     role: 'user' | 'bot';
@@ -55,7 +55,7 @@ export default function ChatInterface() {
         try {
             const res = await fetch(`${API_BASE_URL}/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: apiHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     user_id: 'guest_user', // Will handle proper logins later
                     session_id: sessionId,

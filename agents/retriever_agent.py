@@ -6,7 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, END
 
-from llm.factory import get_llm_with_failover
+from llm.factory import get_llm_with_failover, get_settings
 from rag.retriever import CompanyRetriever, format_documents
 
 LOGGER = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ class RetrieverAgent:
     def __init__(self, retriever: CompanyRetriever) -> None:
         self.retriever = retriever
         llm = get_llm_with_failover()
+        top_k = get_settings().retriever_top_k
 
         grader = _GRADE_PROMPT | llm | StrOutputParser()
         rewriter = _REWRITE_PROMPT | llm | StrOutputParser()
@@ -99,7 +100,7 @@ class RetrieverAgent:
                     "context": context,
                     "question": state["query"],
                 }).strip()
-                confidence = "high" if len(state["relevant_docs"]) >= 3 else (
+                confidence = "high" if len(state["relevant_docs"]) >= top_k else (
                     "medium" if state["relevant_docs"] else "low"
                 )
             except Exception:
@@ -110,7 +111,7 @@ class RetrieverAgent:
             return {**state, "answer": answer, "source": sources, "confidence": confidence}
 
         def routing(state: RAGState) -> str:
-            enough = len(state.get("relevant_docs", [])) >= 3
+            enough = len(state.get("relevant_docs", [])) >= top_k
             at_limit = state["iterations"] >= 2
             return "generate" if (enough or at_limit) else "rewrite"
 

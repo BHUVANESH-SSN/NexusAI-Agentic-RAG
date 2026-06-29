@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, File, BackgroundTasks, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from redis import Redis
 
@@ -21,9 +20,26 @@ LOGGER = logging.getLogger(__name__)
 
 # --- Global State & Indexing Queue Helpers ---
 
+_redis_client = None
+
+def _get_redis():
+    global _redis_client
+    if _redis_client is None:
+        try:
+            _redis_client = Redis.from_url(
+                get_settings().redis_url,
+                socket_connect_timeout=1,
+                decode_responses=False,
+            )
+        except Exception:
+            pass
+    return _redis_client
+
 def _indexing_queue_add(filename: str) -> None:
     try:
-        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r = _get_redis()
+        if r is None:
+            return
         r.sadd("nexusai:indexing_queue", filename)
         r.expire("nexusai:indexing_queue", 3600)
     except Exception:
@@ -31,21 +47,27 @@ def _indexing_queue_add(filename: str) -> None:
 
 def _indexing_queue_remove(filename: str) -> None:
     try:
-        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r = _get_redis()
+        if r is None:
+            return
         r.srem("nexusai:indexing_queue", filename)
     except Exception:
         pass
 
 def _indexing_queue_contains(filename: str) -> bool:
     try:
-        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r = _get_redis()
+        if r is None:
+            return False
         return bool(r.sismember("nexusai:indexing_queue", filename))
     except Exception:
         return False
 
 def _indexing_queue_clear() -> None:
     try:
-        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r = _get_redis()
+        if r is None:
+            return
         r.delete("nexusai:indexing_queue")
     except Exception:
         pass
@@ -75,11 +97,13 @@ def build_indices_and_refresh(app):
     try:
         from rag.ingestion import build_indices
         LOGGER.info("Starting background rebuild of indices...")
+        if hasattr(app.state, "chatbot"):
+            app.state.chatbot.retriever_agent.retriever.clear_cache()
+            LOGGER.info("Retriever cache cleared before re-indexing.")
         build_indices()
         _indexing_queue_clear()
         if hasattr(app.state, "chatbot"):
-            app.state.chatbot.retriever_agent.retriever.clear_cache()
-            LOGGER.info("Chatbot retriever cache cleared successfully.")
+            LOGGER.info("Re-indexing complete; retriever will reload on next query.")
     except Exception as e:
         LOGGER.error("Background indexing failed: %s", e)
         _indexing_queue_clear()
@@ -93,7 +117,9 @@ def _enforce_rate_limit(request: Request) -> None:
     # Key on identity + source IP — not client-supplied user_id — to prevent spoofing
     key = f"rate_limit:anon:{source_ip}"
     try:
-        r = Redis.from_url(settings.redis_url, socket_connect_timeout=1)
+        r = _get_redis()
+        if r is None:
+            return  # Redis down — degrade gracefully, do not block requests
         count = r.incr(key)
         if count == 1:
             r.expire(key, 60)

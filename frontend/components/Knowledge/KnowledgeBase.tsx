@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UploadCloud, Search, FileText, Trash2 } from 'lucide-react';
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiHeaders } from "@/lib/api";
 
 type Document = {
     name: string;
@@ -18,7 +18,9 @@ export default function KnowledgeBase() {
 
     const fetchDocuments = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/documents`);
+            const res = await fetch(`${API_BASE_URL}/documents`, {
+                headers: apiHeaders(),
+            });
             if (res.ok) {
                 const data = await res.json();
                 setDocuments(data.documents || []);
@@ -50,6 +52,7 @@ export default function KnowledgeBase() {
         try {
             const res = await fetch(`${API_BASE_URL}/upload`, {
                 method: 'POST',
+                headers: apiHeaders(),
                 body: formData
             });
             if (res.ok) {
@@ -71,7 +74,8 @@ export default function KnowledgeBase() {
 
         try {
             const res = await fetch(`${API_BASE_URL}/documents/${filename}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: apiHeaders(),
             });
             if (res.ok) {
                 await fetchDocuments();
@@ -89,7 +93,8 @@ export default function KnowledgeBase() {
 
         try {
             const res = await fetch(`${API_BASE_URL}/documents`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: apiHeaders(),
             });
             if (res.ok) {
                 await fetchDocuments();
