@@ -111,6 +111,12 @@ async def lifespan(app: FastAPI):
     from utils.encryption import validate_key
     validate_key()
     settings = get_settings()
+    if settings.langsmith_api_key:
+        import os as _os
+        _os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        _os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
+        _os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
+        LOGGER.info("LangSmith tracing enabled (project: %s)", settings.langchain_project)
     retriever = CompanyRetriever()
     app.state.chatbot = EnterpriseChatbot(retriever=retriever)
     LOGGER.info("Application startup complete with EnterpriseChatbot.")

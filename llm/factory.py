@@ -37,6 +37,8 @@ class Settings:
     allowed_email_domains: List[str]
     email_send_cap_per_hour: int
     db_path: Path
+    langsmith_api_key: str
+    langchain_project: str
     db_readonly_uri: str
     rate_limit_per_minute: int
 
@@ -107,6 +109,8 @@ def get_settings() -> Settings:
             os.getenv("DB_PATH"),
             BASE_DIR / "db" / "company.db",
         ),
+        langsmith_api_key=os.getenv("LANGSMITH_API_KEY", "").strip(),
+        langchain_project=os.getenv("LANGCHAIN_PROJECT", "nexusai").strip(),
         db_readonly_uri=os.getenv("DB_READONLY_URI", "").strip(),
         rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "10")),
     )
