@@ -26,7 +26,7 @@ class EnterpriseChatbot:
         self.supervisor = Supervisor()
         
         # Core Execution Agents
-        self.retriever_agent = RetrieverAgent(llm=self.llm, retriever=retriever) 
+        self.retriever_agent = RetrieverAgent(retriever=retriever)
         self.chat_agent = ChatAgent(llm=self.llm)
         
         # New Execution Agents

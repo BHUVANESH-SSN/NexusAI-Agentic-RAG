@@ -1,108 +1,155 @@
-import json
 import logging
-from typing import Any, List
+from typing import TypedDict, List
 
-from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
+from langchain_core.output_parsers import StrOutputParser
+from langgraph.graph import StateGraph, END
 
+from llm.factory import get_llm_with_failover
 from rag.retriever import CompanyRetriever, format_documents
 
 LOGGER = logging.getLogger(__name__)
 
-class AgentResponse(BaseModel):
-    answer: str = Field(description="The summarized and human-friendly answer based on company documents.")
-    source: str = Field(description="Comma-separated names of the source documents used.")
-    confidence: str = Field(description="Confidence level: high, medium, or low.")
+_GRADE_PROMPT = ChatPromptTemplate.from_template("""\
+Grade whether this document is relevant to the question.
+Answer with ONLY "yes" or "no".
 
-_SYSTEM_PROMPT = """\
-You are a strict enterprise AI assistant.
-Use ONLY the provided context to answer the question.
+Question: {question}
+Document: {document}""")
 
-RULES:
-1.  **Strict Fidelity**: Use the provided context to answer the question. Use the conversation history provided below for coherence and to resolve follow-up references.
-2.  **Grounding**: Do NOT invent facts about the company that aren't in the context.
-3.  **Fallback**: If information is completely missing from BOTH history and context, say: "The document does not provide details on that topic."
-4.  **Faithful Rephrasing**: Rephrase and summarize, but stay faithful to the content.
-5.  **Process Handling**: If the answer involves steps, you MUST use bullet points.
-6.  **Formatting**: Keep it concise and clear.
+_REWRITE_PROMPT = ChatPromptTemplate.from_template("""\
+The retrieved documents were not relevant enough to answer the question.
+Rewrite the question to be more specific and search-friendly.
+Output ONLY the rewritten question, nothing else.
 
-RESPONSE FORMAT (JSON ONLY):
-{{
-  "answer": "...",
-  "source": "...",
-  "confidence": "high/medium/low"
-}}
+Original question: {question}""")
 
-{format_instructions}
+_ANSWER_PROMPT = ChatPromptTemplate.from_template("""\
+You are a helpful enterprise AI assistant. Answer the question using ONLY the provided context.
+If the context doesn't contain the answer, say exactly:
+"The document does not provide details on that topic."
 
-CONTEXT FROM COMPANY DOCUMENTS:
+Context:
 {context}
-"""
+
+Question: {question}
+
+Answer:""")
+
+
+class RAGState(TypedDict):
+    query: str
+    history: str
+    documents: List[Document]
+    relevant_docs: List[Document]
+    answer: str
+    source: str
+    confidence: str
+    iterations: int
+
 
 class RetrieverAgent:
-    def __init__(self, llm, retriever: CompanyRetriever) -> None:
+    def __init__(self, retriever: CompanyRetriever) -> None:
         self.retriever = retriever
-        self.parser = PydanticOutputParser(pydantic_object=AgentResponse)
-        
-        self.prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", _SYSTEM_PROMPT),
-                (
-                    "human",
-                    "Conversation history:\n{history}\n\n"
-                    "User question: {message}",
-                ),
-            ]
-        ).partial(format_instructions=self.parser.get_format_instructions())
-        
-        self.chain = self.prompt | llm
+        llm = get_llm_with_failover()
 
-    def _extract_source_names(self, documents: List[Any]) -> str:
-        if not documents:
-            return "none"
-        sources = set()
-        for doc in documents:
-            filename = doc.metadata.get("source", "unknown").split("/")[-1].split("\\")[-1]
-            sources.add(filename)
-        return ", ".join(sorted(sources))
+        grader = _GRADE_PROMPT | llm | StrOutputParser()
+        rewriter = _REWRITE_PROMPT | llm | StrOutputParser()
+        answerer = _ANSWER_PROMPT | llm | StrOutputParser()
 
-    def run(self, message: str, history: str) -> dict:
-        LOGGER.info("Retriever Agent processing query")
-        try:
-            documents = self.retriever.retrieve(message, history=history)
-            if not documents:
-                return {
-                    "answer": "The document does not provide enough details.",
-                    "source": "none",
-                    "confidence": "low"
-                }
+        def retrieve_node(state: RAGState) -> RAGState:
+            docs = self.retriever.retrieve(state["query"], state["history"])
+            return {**state, "documents": docs, "iterations": state["iterations"] + 1}
 
-            context_str = format_documents(documents)
-            source_names = self._extract_source_names(documents)
+        def grade_node(state: RAGState) -> RAGState:
+            relevant = []
+            for doc in state["documents"]:
+                try:
+                    verdict = grader.invoke({
+                        "question": state["query"],
+                        "document": doc.page_content[:800],
+                    }).strip().lower()
+                    if verdict.startswith("yes"):
+                        relevant.append(doc)
+                except Exception:
+                    relevant.append(doc)  # fail-open on grader error
+            LOGGER.info(
+                "Graded %d docs — %d relevant (iteration %d)",
+                len(state["documents"]), len(relevant), state["iterations"],
+            )
+            return {**state, "relevant_docs": relevant}
 
-            response = self.chain.invoke({
-                "context": context_str,
-                "history": history,
-                "message": message
-            })
-            
+        def rewrite_node(state: RAGState) -> RAGState:
             try:
-                content = response.content if hasattr(response, 'content') else str(response)
-                parsed = self.parser.parse(content)
-                return parsed.model_dump()
+                rewritten = rewriter.invoke({"question": state["query"]}).strip()
+                LOGGER.info("Query rewritten: %r -> %r", state["query"], rewritten)
+                return {**state, "query": rewritten}
             except Exception:
-                content = response.content if hasattr(response, 'content') else str(response)
-                return {
-                    "answer": content.strip(),
-                    "source": source_names,
-                    "confidence": "medium"
-                }
+                return state
 
-        except Exception as e:
-            LOGGER.exception("Retriever Agent runtime error: %s", e)
+        def generate_node(state: RAGState) -> RAGState:
+            docs = state["relevant_docs"] or state["documents"]
+            context = format_documents(docs)
+            sources = ", ".join(sorted({
+                doc.metadata.get("source", "unknown") for doc in docs
+            }))
+            try:
+                answer = answerer.invoke({
+                    "context": context,
+                    "question": state["query"],
+                }).strip()
+                confidence = "high" if len(state["relevant_docs"]) >= 3 else (
+                    "medium" if state["relevant_docs"] else "low"
+                )
+            except Exception:
+                LOGGER.exception("Answer generation failed.")
+                answer = "I couldn't retrieve that information right now."
+                confidence = "low"
+                sources = "error"
+            return {**state, "answer": answer, "source": sources, "confidence": confidence}
+
+        def routing(state: RAGState) -> str:
+            enough = len(state.get("relevant_docs", [])) >= 3
+            at_limit = state["iterations"] >= 2
+            return "generate" if (enough or at_limit) else "rewrite"
+
+        graph = StateGraph(RAGState)
+        graph.add_node("retrieve", retrieve_node)
+        graph.add_node("grade", grade_node)
+        graph.add_node("rewrite", rewrite_node)
+        graph.add_node("generate", generate_node)
+        graph.set_entry_point("retrieve")
+        graph.add_edge("retrieve", "grade")
+        graph.add_conditional_edges(
+            "grade", routing, {"generate": "generate", "rewrite": "rewrite"}
+        )
+        graph.add_edge("rewrite", "retrieve")
+        graph.add_edge("generate", END)
+        self._graph = graph.compile()
+
+    def run(self, message: str, history: str = "") -> dict:
+        LOGGER.info("RetrieverAgent (Corrective RAG): %s", message[:80])
+        try:
+            final = self._graph.invoke({
+                "query": message,
+                "history": history or "No history",
+                "documents": [],
+                "relevant_docs": [],
+                "answer": "",
+                "source": "unknown",
+                "confidence": "low",
+                "iterations": 0,
+            })
             return {
-                "answer": "I encountered an error while searching for company data.",
-                "source": "system",
-                "confidence": "low"
+                "answer": final["answer"],
+                "source": final["source"],
+                "confidence": final["confidence"],
+            }
+        except Exception:
+            LOGGER.exception("RetrieverAgent failed.")
+            return {
+                "answer": "I encountered an issue retrieving information from the knowledge base.",
+                "source": "error",
+                "confidence": "low",
             }
