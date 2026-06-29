@@ -1,6 +1,5 @@
 import logging
 import pickle
-from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 
 from llm.factory import get_embeddings, get_settings
@@ -82,7 +81,7 @@ def split_documents(documents):
 
 
 def build_indices():
-    from rag.qdrant_store import get_qdrant_client, get_vector_store, COLLECTION_NAME
+    from rag.qdrant_store import get_qdrant_client, get_vector_store, COLLECTION_NAME, VECTOR_DIM
     from qdrant_client.models import VectorParams, Distance
 
     settings = get_settings()
@@ -105,7 +104,7 @@ def build_indices():
         client.delete_collection(COLLECTION_NAME)
     client.create_collection(
         collection_name=COLLECTION_NAME,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
     )
     vector_store = get_vector_store(client, embeddings)
     vector_store.add_documents(chunks)
