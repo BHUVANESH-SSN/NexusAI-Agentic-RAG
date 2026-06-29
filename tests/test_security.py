@@ -10,15 +10,13 @@ def test_chat_requires_auth():
 
 
 def test_settings_requires_auth():
-    # /settings uses require_admin which returns 403 for any non-admin request
     r = client.get("/settings")
-    assert r.status_code in (401, 403)
+    assert r.status_code == 403  # require_admin always returns 403
 
 
 def test_upload_requires_auth():
-    # /upload uses require_admin which returns 403 for any non-admin request
     r = client.post("/upload", files={"file": ("t.pdf", b"data", "application/pdf")})
-    assert r.status_code in (401, 403)
+    assert r.status_code == 403  # require_admin always returns 403
 
 
 def test_user_key_denied_admin_route():

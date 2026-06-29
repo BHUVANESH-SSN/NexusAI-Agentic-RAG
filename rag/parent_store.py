@@ -22,6 +22,11 @@ class ParentStore:
         self._data[parent_id] = text
         self._path.write_text(json.dumps(self._data))
 
+    def save_all(self, parent_texts: dict) -> None:
+        """Bulk write — one disk write for all parents (use instead of repeated save())."""
+        self._data.update(parent_texts)
+        self._path.write_text(json.dumps(self._data))
+
     def get(self, parent_id: str) -> str:
         return self._data.get(parent_id, "")
 

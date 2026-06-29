@@ -144,26 +144,55 @@ def get_chat_model(provider: Optional[str] = None):
     return ChatLiteLLM(model=model_name, temperature=settings.llm_temperature)
 
 
-def get_llm_with_failover():
-    """Try the configured provider, then each FAILOVER_PROVIDERS entry in order."""
+try:
+    from langchain_core.runnables import Runnable as _LCRunnable
+    _RUNNABLE_BASE = _LCRunnable
+except ImportError:
+    _RUNNABLE_BASE = object  # type: ignore[assignment,misc]
+
+
+class _FailoverChatModel(_RUNNABLE_BASE):
+    """LangChain-compatible chat model that retries across providers at every invoke call.
+
+    Inherits from langchain_core.runnables.Runnable so it participates in LCEL
+    chains (prompt | model | parser) via the standard __or__ / pipe interface.
+    """
+
+    def __init__(self, providers: List[str]) -> None:
+        self._providers = providers
+
+    def _invoke_with_failover(self, method: str, *args, **kwargs) -> Any:
+        last_exc: Exception = RuntimeError("No LLM providers configured.")
+        for provider in self._providers:
+            try:
+                return getattr(get_chat_model(provider), method)(*args, **kwargs)
+            except Exception as exc:
+                logging.getLogger(__name__).warning(
+                    "LLM provider '%s' failed at %s: %s. Trying next.", provider, method, exc
+                )
+                last_exc = exc
+        raise RuntimeError(f"All LLM providers failed. Last: {last_exc}") from last_exc
+
+    def invoke(self, *args, **kwargs) -> Any:
+        return self._invoke_with_failover("invoke", *args, **kwargs)
+
+    def stream(self, *args, **kwargs) -> Any:
+        return self._invoke_with_failover("stream", *args, **kwargs)
+
+    def bind(self, **kwargs) -> "_FailoverChatModel":
+        clone = _FailoverChatModel(self._providers)
+        clone._bind_kwargs = {**getattr(self, "_bind_kwargs", {}), **kwargs}
+        return clone
+
+
+def get_llm_with_failover() -> _FailoverChatModel:
+    """Return a chat model that retries across providers at every invoke call."""
     settings = get_settings()
     providers = [settings.llm_provider] + [
         p for p in settings.failover_providers if p != settings.llm_provider
     ]
-    last_exc: Exception = RuntimeError("No LLM providers configured.")
-    for provider in providers:
-        try:
-            model = get_chat_model(provider)
-            logging.getLogger(__name__).info("LLM provider resolved: %s", provider)
-            return model
-        except Exception as exc:
-            logging.getLogger(__name__).warning(
-                "LLM provider '%s' unavailable: %s. Trying next.", provider, exc
-            )
-            last_exc = exc
-    raise RuntimeError(
-        f"All LLM providers exhausted. Last error: {last_exc}"
-    ) from last_exc
+    logging.getLogger(__name__).info("LLM failover chain: %s", providers)
+    return _FailoverChatModel(providers)
 
 
 @lru_cache(maxsize=1)

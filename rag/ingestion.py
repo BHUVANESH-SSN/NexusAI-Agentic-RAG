@@ -131,8 +131,7 @@ def build_indices():
     # 2. Parent store
     store = ParentStore(settings.vector_store_path)
     store.clear()
-    for pid, text in parent_texts.items():
-        store.save(pid, text)
+    store.save_all(parent_texts)
     LOGGER.info("Parent store saved: %d entries", len(parent_texts))
 
     # 3. BM25 — child chunks

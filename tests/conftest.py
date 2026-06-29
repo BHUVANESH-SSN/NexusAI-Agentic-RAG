@@ -12,3 +12,5 @@ def set_test_env(monkeypatch):
     monkeypatch.setenv("LANGSMITH_API_KEY", "")
     from llm.factory import get_settings, get_embeddings, get_reranker
     get_settings.cache_clear()
+    get_embeddings.cache_clear()
+    get_reranker.cache_clear()
