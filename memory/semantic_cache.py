@@ -29,8 +29,18 @@ class SemanticCache:
             self.redis_client = None
 
     def _get_all_cache_keys(self):
-        if not self.redis_client: return []
-        return self.redis_client.keys("semantic_cache:*")
+        if not self.redis_client:
+            return []
+        keys = []
+        cursor = 0
+        while True:
+            cursor, batch = self.redis_client.scan(
+                cursor, match="semantic_cache:*", count=100
+            )
+            keys.extend(batch)
+            if cursor == 0:
+                break
+        return keys
 
     def _cosine_similarity(self, v1: list, v2: list) -> float:
         """Simple dot product (assuming embeddings are normalized)."""

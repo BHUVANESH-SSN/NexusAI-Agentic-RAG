@@ -28,6 +28,19 @@ class Settings:
     failover_providers: List[str]
     redis_url: str
     log_level: str
+    # --- Security fields ---
+    api_key: str
+    admin_api_key: str
+    cors_allowed_origins: List[str]
+    allowed_upload_extensions: List[str]
+    max_upload_bytes: int
+    allowed_email_domains: List[str]
+    email_send_cap_per_hour: int
+    db_path: Path
+    langsmith_api_key: str
+    langchain_project: str
+    db_readonly_uri: str
+    rate_limit_per_minute: int
 
 
 def _resolve_path(value: Optional[str], default: Path) -> Path:
@@ -72,6 +85,34 @@ def get_settings() -> Settings:
         failover_providers=os.getenv("FAILOVER_PROVIDERS", "groq,openai").lower().split(","),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        # --- Security ---
+        api_key=os.getenv("API_KEY", "").strip(),
+        admin_api_key=os.getenv("ADMIN_API_KEY", "").strip(),
+        cors_allowed_origins=[
+            o.strip()
+            for o in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+            if o.strip()
+        ],
+        allowed_upload_extensions=[
+            e.strip().lower()
+            for e in os.getenv("ALLOWED_UPLOAD_EXTENSIONS", ".pdf,.md,.docx,.csv").split(",")
+            if e.strip()
+        ],
+        max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024))),
+        allowed_email_domains=[
+            d.strip().lower()
+            for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",")
+            if d.strip()
+        ],
+        email_send_cap_per_hour=int(os.getenv("EMAIL_SEND_CAP_PER_HOUR", "10")),
+        db_path=_resolve_path(
+            os.getenv("DB_PATH"),
+            BASE_DIR / "db" / "company.db",
+        ),
+        langsmith_api_key=os.getenv("LANGSMITH_API_KEY", "").strip(),
+        langchain_project=os.getenv("LANGCHAIN_PROJECT", "nexusai").strip(),
+        db_readonly_uri=os.getenv("DB_READONLY_URI", "").strip(),
+        rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "10")),
     )
 
 
@@ -84,40 +125,45 @@ def configure_logging() -> None:
 
 
 def get_chat_model(provider: Optional[str] = None):
+    """Return a LangChain-compatible chat model via LiteLLM's unified interface."""
+    from langchain_community.chat_models import ChatLiteLLM
     settings = get_settings()
-    provider = provider or settings.llm_provider
+    provider = (provider or settings.llm_provider).strip().lower()
 
-    if provider == "groq":
-        from langchain_groq import ChatGroq
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise ValueError("GROQ_API_KEY is missing.")
-        return ChatGroq(model=settings.groq_model, temperature=settings.llm_temperature, max_retries=1)
-
-    if provider == "openai":
-        from langchain_openai import ChatOpenAI
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY is missing.")
-        return ChatOpenAI(model=settings.openai_model, temperature=settings.llm_temperature, max_retries=1)
-
-    if provider == "anthropic":
-        from langchain_anthropic import ChatAnthropic
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY is missing.")
-        return ChatAnthropic(model=settings.anthropic_model, temperature=settings.llm_temperature)
-
-    if provider == "bedrock":
-        from langchain_aws import ChatBedrock
-        return ChatBedrock(model_id=settings.bedrock_model_id, model_kwargs={"temperature": settings.llm_temperature})
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    model_map = {
+        "groq":      f"groq/{settings.groq_model}",
+        "openai":    f"openai/{settings.openai_model}",
+        "anthropic": f"anthropic/{settings.anthropic_model}",
+        "bedrock":   f"bedrock/{settings.bedrock_model_id}",
+    }
+    model_name = model_map.get(provider)
+    if not model_name:
+        raise ValueError(
+            f"Unsupported LLM provider: {provider!r}. Choose from: {list(model_map)}"
+        )
+    return ChatLiteLLM(model=model_name, temperature=settings.llm_temperature)
 
 
 def get_llm_with_failover():
-    """Returns the main configured model. Pluggable for future use."""
-    return get_chat_model()
+    """Try the configured provider, then each FAILOVER_PROVIDERS entry in order."""
+    settings = get_settings()
+    providers = [settings.llm_provider] + [
+        p for p in settings.failover_providers if p != settings.llm_provider
+    ]
+    last_exc: Exception = RuntimeError("No LLM providers configured.")
+    for provider in providers:
+        try:
+            model = get_chat_model(provider)
+            logging.getLogger(__name__).info("LLM provider resolved: %s", provider)
+            return model
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "LLM provider '%s' unavailable: %s. Trying next.", provider, exc
+            )
+            last_exc = exc
+    raise RuntimeError(
+        f"All LLM providers exhausted. Last error: {last_exc}"
+    ) from last_exc
 
 
 @lru_cache(maxsize=1)

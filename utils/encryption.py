@@ -21,3 +21,19 @@ def decrypt_value(token: str) -> str:
         return ""
     cipher = get_cipher()
     return cipher.decrypt(token.encode('utf-8')).decode('utf-8')
+
+def validate_key() -> None:
+    """Call at startup. Raises ValueError with generation hint if key is missing/invalid."""
+    key = os.getenv("MASTER_ENCRYPTION_KEY", "").strip()
+    if not key:
+        raise ValueError(
+            "MASTER_ENCRYPTION_KEY is not set. Generate one with:\n"
+            "  python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"\n"
+            "Then add it to your .env file."
+        )
+    try:
+        Fernet(key.encode())
+    except Exception as exc:
+        raise ValueError(
+            f"MASTER_ENCRYPTION_KEY is invalid (must be a Fernet key): {exc}"
+        ) from exc

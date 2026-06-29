@@ -60,7 +60,8 @@ def run_evaluation():
                 "question": question,
                 "answer": answer,
                 "scores": scores,
-                "retrieval_accuracy": retrieval_acc
+                "retrieval_accuracy": retrieval_acc,
+                "ground_truth": case.get("expected_answer") or case.get("expected_source", "")
             }
             results.append(case_result)
             
