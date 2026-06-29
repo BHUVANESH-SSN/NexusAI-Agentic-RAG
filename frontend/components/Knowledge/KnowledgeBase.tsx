@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UploadCloud, Search, FileText, Trash2 } from 'lucide-react';
+import { API_BASE_URL } from "@/lib/api";
 
 type Document = {
     name: string;
@@ -17,7 +18,7 @@ export default function KnowledgeBase() {
 
     const fetchDocuments = async () => {
         try {
-            const res = await fetch('http://127.0.0.1:8000/documents');
+            const res = await fetch(`${API_BASE_URL}/documents`);
             if (res.ok) {
                 const data = await res.json();
                 setDocuments(data.documents || []);
@@ -47,7 +48,7 @@ export default function KnowledgeBase() {
 
         setIsUploading(true);
         try {
-            const res = await fetch('http://127.0.0.1:8000/upload', {
+            const res = await fetch(`${API_BASE_URL}/upload`, {
                 method: 'POST',
                 body: formData
             });
@@ -69,7 +70,7 @@ export default function KnowledgeBase() {
         if (!window.confirm(`Are you sure you want to delete ${filename}? This will trigger a re-indexing of the remaining documents.`)) return;
 
         try {
-            const res = await fetch(`http://127.0.0.1:8000/documents/${filename}`, {
+            const res = await fetch(`${API_BASE_URL}/documents/${filename}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
@@ -87,7 +88,7 @@ export default function KnowledgeBase() {
         if (!window.confirm("WARNING: This will delete ALL documents and completely wipe the Knowledge Base index. Are you sure?")) return;
 
         try {
-            const res = await fetch('http://127.0.0.1:8000/documents', {
+            const res = await fetch(`${API_BASE_URL}/documents`, {
                 method: 'DELETE'
             });
             if (res.ok) {
