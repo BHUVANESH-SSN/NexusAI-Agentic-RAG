@@ -19,8 +19,36 @@ from utils.encryption import encrypt_value, decrypt_value
 configure_logging()
 LOGGER = logging.getLogger(__name__)
 
-# --- Global State ---
-INDEXING_QUEUE: set = set()
+# --- Global State & Indexing Queue Helpers ---
+
+def _indexing_queue_add(filename: str) -> None:
+    try:
+        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r.sadd("nexusai:indexing_queue", filename)
+        r.expire("nexusai:indexing_queue", 3600)
+    except Exception:
+        pass
+
+def _indexing_queue_remove(filename: str) -> None:
+    try:
+        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r.srem("nexusai:indexing_queue", filename)
+    except Exception:
+        pass
+
+def _indexing_queue_contains(filename: str) -> bool:
+    try:
+        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        return bool(r.sismember("nexusai:indexing_queue", filename))
+    except Exception:
+        return False
+
+def _indexing_queue_clear() -> None:
+    try:
+        r = Redis.from_url(get_settings().redis_url, socket_connect_timeout=1)
+        r.delete("nexusai:indexing_queue")
+    except Exception:
+        pass
 
 # --- Models ---
 
@@ -48,13 +76,13 @@ def build_indices_and_refresh(app):
         from rag.ingestion import build_indices
         LOGGER.info("Starting background rebuild of indices...")
         build_indices()
-        INDEXING_QUEUE.clear()
+        _indexing_queue_clear()
         if hasattr(app.state, "chatbot"):
             app.state.chatbot.retriever_agent.retriever.clear_cache()
             LOGGER.info("Chatbot retriever cache cleared successfully.")
     except Exception as e:
         LOGGER.error("Background indexing failed: %s", e)
-        INDEXING_QUEUE.clear()
+        _indexing_queue_clear()
 
 
 # --- Rate Limiting ---
@@ -268,7 +296,7 @@ async def upload_document(
         settings.docs_path.mkdir(parents=True, exist_ok=True)
         file_path = settings.docs_path / safe_name
         file_path.write_bytes(content)
-        INDEXING_QUEUE.add(safe_name)
+        _indexing_queue_add(safe_name)
         background_tasks.add_task(build_indices_and_refresh, app)
         return {"status": "success", "message": f"Uploaded {safe_name} and queued for re-indexing."}
     except Exception as e:
@@ -288,7 +316,7 @@ def list_documents(_identity: str = Depends(require_admin)):
         for doc in settings.docs_path.glob(ext):
             docs.append({
                 "name": doc.name,
-                "status": "Processing" if doc.name in INDEXING_QUEUE else (
+                "status": "Processing" if _indexing_queue_contains(doc.name) else (
                     "Indexed" if vector_exists else "Pending"
                 ),
                 "size": doc.stat().st_size,
