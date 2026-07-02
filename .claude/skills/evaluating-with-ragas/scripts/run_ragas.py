@@ -24,7 +24,6 @@ sys.path.insert(0, str(REPO_ROOT))
 def build_samples(limit=None, with_recall=True):
     from rag.retriever import CompanyRetriever
     from agents.retriever_agent import RetrieverAgent
-    from llm.factory import get_chat_model
 
     dataset_path = REPO_ROOT / "data" / "eval_dataset.json"
     test_cases = json.loads(dataset_path.read_text()).get("test_cases", [])
@@ -32,7 +31,7 @@ def build_samples(limit=None, with_recall=True):
         test_cases = test_cases[:limit]
 
     retriever = CompanyRetriever()
-    agent = RetrieverAgent(llm=get_chat_model(), retriever=retriever)
+    agent = RetrieverAgent(retriever)
 
     samples = []
     for case in test_cases:
@@ -68,11 +67,20 @@ def main():
         from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
         from ragas.llms import LangchainLLMWrapper
         from ragas.embeddings import LangchainEmbeddingsWrapper
+        from ragas.run_config import RunConfig
     except ImportError:
         sys.exit("Missing deps. Run: pip install ragas datasets")
 
-    from llm.factory import get_chat_model, get_embeddings, configure_logging
+    from llm.factory import get_chat_model, get_embeddings, get_settings, configure_logging
     configure_logging()
+
+    settings = get_settings()
+    if settings.langsmith_api_key:
+        import os as _os
+        _os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        _os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
+        _os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
+        print(f"[langsmith] tracing enabled (project: {settings.langchain_project})")
 
     with_recall = not args.no_recall
     samples = build_samples(limit=args.limit, with_recall=with_recall)
@@ -81,6 +89,12 @@ def main():
 
     ds = Dataset.from_list(samples)
 
+    # answer_relevancy defaults to strictness=3, which asks the judge LLM for 3
+    # generations (n=3) per call. Groq's API hard-rejects n>1 ("number must be at
+    # most 1"), which silently zeroes the metric under ragas's default
+    # raise_exceptions=False. Force single-generation scoring instead.
+    answer_relevancy.strictness = 1
+
     metrics = [faithfulness, answer_relevancy, context_precision]
     if with_recall:
         metrics.append(context_recall)
@@ -88,8 +102,13 @@ def main():
     judge_llm = LangchainLLMWrapper(get_chat_model())
     judge_emb = LangchainEmbeddingsWrapper(get_embeddings())
 
+    # Groq's free tier rate-limits hard; ragas defaults to 16 concurrent judge calls,
+    # which triggers cascading 429s/connection errors that get masked as 0-scores.
+    # Fully serialize judge calls so retries have room to actually succeed.
+    run_config = RunConfig(max_workers=1, timeout=300, max_retries=5, max_wait=30)
+
     print(f"\n[ragas] scoring {len(samples)} samples on {[m.name for m in metrics]} ...")
-    result = evaluate(ds, metrics=metrics, llm=judge_llm, embeddings=judge_emb)
+    result = evaluate(ds, metrics=metrics, llm=judge_llm, embeddings=judge_emb, run_config=run_config)
 
     print("\n" + "=" * 50)
     print("RAGAS RESULTS (aggregate)")

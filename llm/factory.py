@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -125,23 +126,35 @@ def configure_logging() -> None:
 
 
 def get_chat_model(provider: Optional[str] = None):
-    """Return a LangChain-compatible chat model via LiteLLM's unified interface."""
-    from langchain_community.chat_models import ChatLiteLLM
+    """Return a native LangChain chat model for the given provider.
+
+    langchain_community's ChatLiteLLM wrapper was removed upstream (moved behind a
+    deprecation shim that no longer resolves), so each provider is wired to its
+    dedicated LangChain integration package instead.
+    """
     settings = get_settings()
     provider = (provider or settings.llm_provider).strip().lower()
 
-    model_map = {
-        "groq":      f"groq/{settings.groq_model}",
-        "openai":    f"openai/{settings.openai_model}",
-        "anthropic": f"anthropic/{settings.anthropic_model}",
-        "bedrock":   f"bedrock/{settings.bedrock_model_id}",
-    }
-    model_name = model_map.get(provider)
-    if not model_name:
-        raise ValueError(
-            f"Unsupported LLM provider: {provider!r}. Choose from: {list(model_map)}"
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+        return ChatGroq(model=settings.groq_model, temperature=settings.llm_temperature)
+    if provider == "openai":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(model=settings.openai_model, temperature=settings.llm_temperature)
+    if provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(model=settings.anthropic_model, temperature=settings.llm_temperature)
+    if provider == "bedrock":
+        from langchain_aws import ChatBedrock
+        return ChatBedrock(
+            model_id=settings.bedrock_model_id,
+            region_name=os.getenv("AWS_REGION", "us-east-1").strip(),
+            temperature=settings.llm_temperature,
         )
-    return ChatLiteLLM(model=model_name, temperature=settings.llm_temperature)
+
+    raise ValueError(
+        f"Unsupported LLM provider: {provider!r}. Choose from: ['groq', 'openai', 'anthropic', 'bedrock']"
+    )
 
 
 try:
@@ -160,17 +173,33 @@ class _FailoverChatModel(_RUNNABLE_BASE):
 
     def __init__(self, providers: List[str]) -> None:
         self._providers = providers
+        self._bind_kwargs: dict = {}
+        self._tools: Optional[list] = None
+        self._tools_kwargs: dict = {}
+
+    def _resolve_model(self, provider: str) -> Any:
+        model = get_chat_model(provider)
+        if self._tools is not None:
+            model = model.bind_tools(self._tools, **self._tools_kwargs)
+        elif self._bind_kwargs:
+            model = model.bind(**self._bind_kwargs)
+        return model
 
     def _invoke_with_failover(self, method: str, *args, **kwargs) -> Any:
         last_exc: Exception = RuntimeError("No LLM providers configured.")
         for provider in self._providers:
-            try:
-                return getattr(get_chat_model(provider), method)(*args, **kwargs)
-            except Exception as exc:
-                logging.getLogger(__name__).warning(
-                    "LLM provider '%s' failed at %s: %s. Trying next.", provider, method, exc
-                )
-                last_exc = exc
+            # One quick retry on the same provider before failing over — transient
+            # connection blips shouldn't burn the failover chain on a single hiccup.
+            for attempt in range(2):
+                try:
+                    return getattr(self._resolve_model(provider), method)(*args, **kwargs)
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt == 0:
+                        time.sleep(0.75)
+            logging.getLogger(__name__).warning(
+                "LLM provider '%s' failed at %s after retry: %s. Trying next.", provider, method, last_exc
+            )
         raise RuntimeError(f"All LLM providers failed. Last: {last_exc}") from last_exc
 
     def invoke(self, *args, **kwargs) -> Any:
@@ -181,7 +210,16 @@ class _FailoverChatModel(_RUNNABLE_BASE):
 
     def bind(self, **kwargs) -> "_FailoverChatModel":
         clone = _FailoverChatModel(self._providers)
-        clone._bind_kwargs = {**getattr(self, "_bind_kwargs", {}), **kwargs}
+        clone._bind_kwargs = {**self._bind_kwargs, **kwargs}
+        clone._tools = self._tools
+        clone._tools_kwargs = self._tools_kwargs
+        return clone
+
+    def bind_tools(self, tools: list, **kwargs) -> "_FailoverChatModel":
+        clone = _FailoverChatModel(self._providers)
+        clone._bind_kwargs = dict(self._bind_kwargs)
+        clone._tools = tools
+        clone._tools_kwargs = kwargs
         return clone
 
 
