@@ -1,0 +1,142 @@
+[
+  {
+    "user_input":"What is the procedure for reporting a breach of UPSI?",
+    "retrieved_contexts":[
+      "Meridian Industries - Code of Conduct & Confidentiality Policy\n1. Unpublished Price Sensitive Information (UPSI)\nAll employees who come into possession of Unpublished Price Sensitive Information (UPSI) in the course of\ntheir duties are designated Insiders and are bound by this policy. UPSI includes any information relating to\nthe Company or its securities, directly or indirectly, that is not generally available and which upon becoming\ngenerally available is likely to materially affect the price of the Company's securities.\nProcedure for reporting a breach of UPSI: any employee who becomes aware of, suspects, or is responsible\nfor an actual or potential breach of UPSI confidentiality must inform the Compliance Officer immediately. The",
+      "generally available is likely to materially affect the price of the Company's securities.\nProcedure for reporting a breach of UPSI: any employee who becomes aware of, suspects, or is responsible",
+      "Meridian Industries - Code of Conduct & Confidentiality Policy\n1. Unpublished Price Sensitive Information (UPSI)"
+    ],
+    "response":"The procedure is that any employee who becomes aware of, suspects, or is responsible for an actual or potential breach of UPSI confidentiality must inform the Compliance Officer immediately.",
+    "reference":"Inform the Compliance Officer immediately who will take measures to rectify the disclosure.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.7650987934,
+    "context_precision":0.9999999999,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"What happens if an employee leaks sensitive company data?",
+    "retrieved_contexts":[
+      "Compliance Officer will take measures to rectify the disclosure, which may include a public announcement to\nbring the information into the public domain, internal investigation, and notification to the Board's Audit\nCommittee. Delayed reporting of a known breach is itself treated as a violation of this policy.\n2. Confidentiality and Data Protection\nEmployees must not disclose confidential Company information, including UPSI, trade secrets, customer\ndata, or internal financial data, to any unauthorized person, whether inside or outside the Company. What\nhappens if an employee leaks sensitive company data: such conduct is treated as a serious breach of this\nCode of Conduct and will result in disciplinary action, up to and including termination of employment, and",
+      "(e.g., by Corporate Communications).\n3. Enforcement\nViolations of this policy are handled under the same disciplinary framework as other breaches of the Code of\nConduct and may result in disciplinary action up to termination, particularly where confidential or\nprice-sensitive information is disclosed.",
+      "Employees must not disclose confidential Company information, including UPSI, trade secrets, customer"
+    ],
+    "response":"If an employee leaks sensitive company data, it is considered a serious breach of the Code of Conduct. The employee will face disciplinary action that can include termination of employment, and may also face legal consequences such as civil liability and, if securities laws are involved, referral to regulatory authorities.",
+    "reference":"Disciplinary action, potential termination, and legal consequences according to company code of conduct.",
+    "faithfulness":0.5,
+    "answer_relevancy":0.9771921039,
+    "context_precision":1.0,
+    "context_recall":0.0
+  },
+  {
+    "user_input":"How many days of annual leave are employees entitled to?",
+    "retrieved_contexts":[
+      "Meridian Industries - Employee HR Handbook\n1. Annual Leave Entitlement\nAll full-time employees of Meridian Industries are entitled to 25 days of paid annual leave per calendar year,\nin addition to public holidays observed at their work location. Leave accrues monthly and unused leave of up\nto 5 days may be carried over into the following calendar year with manager approval. Part-time employees\naccrue leave on a pro-rata basis relative to their contracted hours.\n2. Notice Periods\nStandard employees are required to provide 30 days' written notice of resignation. The notice period for\nsenior managers is longer: 3 months' notice is required for senior management roles (defined as Director",
+      "to 5 days may be carried over into the following calendar year with manager approval. Part-time employees\naccrue leave on a pro-rata basis relative to their contracted hours.\n2. Notice Periods",
+      "in addition to public holidays observed at their work location. Leave accrues monthly and unused leave of up"
+    ],
+    "response":"The document does not provide details on that topic.",
+    "reference":"25 days per calendar year for full-time employees.",
+    "faithfulness":0.0,
+    "answer_relevancy":0.0,
+    "context_precision":0.9999999999,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"What is the policy on remote work and flexible hours?",
+    "retrieved_contexts":[
+      "Meridian Industries - Remote Work & Flexible Hours Policy\n1. Remote Work Eligibility\nMeridian Industries supports a hybrid working model. Employees can work remotely up to 3 days a week with\nmanager approval, provided their role does not require full-time physical presence (e.g., facilities, front-desk,\nor lab-based roles). Requests for remote work arrangements should be submitted through the HR portal and\nreviewed by the employee's direct manager on a rolling basis.\n2. Flexible Hours\nCore collaboration hours are 11:00-16:00 local time, during which employees are expected to be reachable.\nOutside of core hours, employees may adjust their start and end times to suit personal circumstances,\nprovided their total contracted hours are met and team coverage requirements are satisfied.",
+      "or lab-based roles). Requests for remote work arrangements should be submitted through the HR portal and\nreviewed by the employee's direct manager on a rolling basis.\n2. Flexible Hours",
+      "2. Flexible Hours\nCore collaboration hours are 11:00-16:00 local time, during which employees are expected to be reachable."
+    ],
+    "response":"**Remote Work**  \n- Meridian Industries uses a hybrid model.  \n- Employees may work remotely up to **3 days per week** with their manager\u2019s approval.  \n- Remote work is only allowed for roles that **do not require full\u2011time physical presence** (e.g., facilities, front\u2011desk, or lab\u2011based positions are excluded).  \n- Requests must be submitted through the **HR portal** and are reviewed by the employee\u2019s direct manager on a rolling basis.  \n\n**Flexible Hours**  \n- **Core collaboration hours** are **11:00\u202f\u2013\u202f16:00 local time**; employees are expected to be reachable during this window.  \n- Outside of core hours, employees may **adjust their start and end times** to suit personal circumstances, provided they meet their **total contracted hours** and satisfy any **team coverage requirements**.",
+    "reference":"Employees can work remotely up to 3 days a week with manager approval.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.8048954601,
+    "context_precision":1.0,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"Who is the Compliance Officer of the company?",
+    "retrieved_contexts":[
+      "potential legal consequences, including civil liability and, in cases involving securities law violations, referral\nto regulatory authorities.\n3. Office of the Compliance Officer\nThe Board of Directors has appointed the Vice President of Internal Audit, Ms. Anjali Sharma, as the\nCompany's Compliance Officer under this Code. The Compliance Officer is responsible for administering this\npolicy, maintaining the list of designated persons, and serving as the first point of contact for any reporting\nobligations described above. The identity of the Compliance Officer is also published in the Company's most\nrecent corporate governance filing.",
+      "Company's Compliance Officer under this Code. The Compliance Officer is responsible for administering this",
+      "Compliance Officer will take measures to rectify the disclosure, which may include a public announcement to\nbring the information into the public domain, internal investigation, and notification to the Board's Audit\nCommittee. Delayed reporting of a known breach is itself treated as a violation of this policy.\n2. Confidentiality and Data Protection\nEmployees must not disclose confidential Company information, including UPSI, trade secrets, customer\ndata, or internal financial data, to any unauthorized person, whether inside or outside the Company. What\nhappens if an employee leaks sensitive company data: such conduct is treated as a serious breach of this\nCode of Conduct and will result in disciplinary action, up to and including termination of employment, and"
+    ],
+    "response":"Ms.\u202fAnjali Sharma, the Vice President of Internal Audit, is the current Compliance Officer.",
+    "reference":"The specific individual named in the most recent corporate governance filing.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.8832532604,
+    "context_precision":0.9999999999,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"What are the rules for social media usage regarding company matters?",
+    "retrieved_contexts":[
+      "Meridian Industries - Social Media Usage Policy\n1. Personal Use of Social Media\nEmployees are free to use social media in a personal capacity. However, when posting content that could be\nassociated with the Company, employees must exercise good judgment and professionalism at all times.\n2. Rules for Company-Related Content\nThe core rule for social media usage regarding company matters: do not disclose confidential information or\nrepresent the Company without authorization. This includes unreleased product details, financial results prior\nto public disclosure, internal communications, and any statement that could reasonably be interpreted as an\nofficial Company position unless the employee is explicitly authorized to speak on the Company's behalf\n(e.g., by Corporate Communications).",
+      "Meridian Industries - Social Media Usage Policy\n1. Personal Use of Social Media\nEmployees are free to use social media in a personal capacity. However, when posting content that could be",
+      "Compliance Officer will take measures to rectify the disclosure, which may include a public announcement to\nbring the information into the public domain, internal investigation, and notification to the Board's Audit\nCommittee. Delayed reporting of a known breach is itself treated as a violation of this policy.\n2. Confidentiality and Data Protection\nEmployees must not disclose confidential Company information, including UPSI, trade secrets, customer\ndata, or internal financial data, to any unauthorized person, whether inside or outside the Company. What\nhappens if an employee leaks sensitive company data: such conduct is treated as a serious breach of this\nCode of Conduct and will result in disciplinary action, up to and including termination of employment, and"
+    ],
+    "response":"The core rule for social\u2011media usage regarding company matters is that employees must **not disclose confidential information or represent the Company without authorization**. This prohibition covers unreleased product details, financial results before they are publicly disclosed, internal communications, and any statement that could be interpreted as an official Company position\u2014unless the employee is explicitly authorized (e.g., by Corporate Communications) to speak on the Company\u2019s behalf.",
+    "reference":"Do not disclose confidential information or represent the company without authorization.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.9594465276,
+    "context_precision":1.0,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"How do I claim reimbursement for business travel expenses?",
+    "retrieved_contexts":[
+      "Meridian Industries - Finance & Expense Policy\n1. Business Travel Expenses\nEmployees who incur approved business travel expenses (flights, accommodation, meals, local transport)\nmay claim reimbursement. To claim reimbursement for business travel expenses: submit claims through the\nexpense portal with receipts within 30 days of the travel. Claims submitted after 30 days require additional\nFinance approval and may be rejected without a valid justification.\n2. Approval Limits\nTravel expenses under $500 require manager approval only. Expenses of $500 or more require both\nmanager and Finance Business Partner approval prior to booking where possible, or prior to reimbursement\nwhere pre-approval was not practical.\n3. Non-Reimbursable Items",
+      "expense portal with receipts within 30 days of the travel. Claims submitted after 30 days require additional\nFinance approval and may be rejected without a valid justification.\n2. Approval Limits",
+      "manager and Finance Business Partner approval prior to booking where possible, or prior to reimbursement\nwhere pre-approval was not practical.\n3. Non-Reimbursable Items"
+    ],
+    "response":"**Step\u2011by\u2011step procedure**\n\n1. **Verify that the travel expenses are approved** \u2013 only expenses that have been pre\u2011approved can be claimed.  \n2. **Collect the original receipts** for all travel\u2011related costs (flights, accommodation, meals, local transport).  \n3. **Log into the expense portal** and create a new claim.  \n4. **Upload the receipts** to the claim in the portal.  \n5. **Obtain the required approvals**:  \n   - For total expenses **under\u202f$500**, secure only your manager\u2019s approval.  \n   - For total expenses **$500 or more**, obtain both your manager\u2019s approval **and** Finance Business Partner approval\u202f\u2014\u202fpreferably before booking, or at least before reimbursement if pre\u2011approval was not practical.  \n6. **Submit the claim** through the expense portal **within 30\u202fdays of the travel date**.  \n\n**If the claim is submitted after 30\u202fdays**\n\n- You must obtain additional Finance approval, and the claim may be rejected if a valid justification is not provided.  \n\n**Required documents**\n\n- Original receipts for all travel expenses.  \n- Approvals as outlined above (manager approval for <\u202f$500; manager\u202f+\u202fFinance Business Partner approval for \u2265\u202f$500).",
+    "reference":"Submit claims through the portal with receipts within 30 days of the travel.",
+    "faithfulness":0.6,
+    "answer_relevancy":0.6920219908,
+    "context_precision":1.0,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"What is the notice period for senior managers?",
+    "retrieved_contexts":[
+      "Meridian Industries - Employee HR Handbook\n1. Annual Leave Entitlement\nAll full-time employees of Meridian Industries are entitled to 25 days of paid annual leave per calendar year,\nin addition to public holidays observed at their work location. Leave accrues monthly and unused leave of up\nto 5 days may be carried over into the following calendar year with manager approval. Part-time employees\naccrue leave on a pro-rata basis relative to their contracted hours.\n2. Notice Periods\nStandard employees are required to provide 30 days' written notice of resignation. The notice period for\nsenior managers is longer: 3 months' notice is required for senior management roles (defined as Director",
+      "2. Notice Periods\nStandard employees are required to provide 30 days' written notice of resignation. The notice period for",
+      "to 5 days may be carried over into the following calendar year with manager approval. Part-time employees\naccrue leave on a pro-rata basis relative to their contracted hours.\n2. Notice Periods"
+    ],
+    "response":"The standard notice period for senior managers is\u202f3\u202fmonths.",
+    "reference":"3 months notice is required for senior management roles.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.9660033947,
+    "context_precision":0.9999999999,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"Are there any health insurance benefits for family members?",
+    "retrieved_contexts":[
+      "Meridian Industries - Employee Benefits Policy\n1. Health Insurance\nAll full-time employees are enrolled in the Company's standard group health insurance plan from their date of\njoining. Health insurance benefits for family members: yes, spouse and up to two children are covered under\nthe standard plan at no additional cost to the employee. Coverage for additional dependents or an upgrade to\na premium plan tier is available at the employee's own cost through payroll deduction.\n2. Retirement Benefits\nThe Company matches employee retirement fund contributions up to 6% of base salary, in line with local\nstatutory requirements.\n3. Wellness Benefits\nEmployees have access to an annual wellness allowance covering gym memberships, mental health support\nservices, and an annual health check-up.",
+      "Meridian Industries - Employee Benefits Policy\n1. Health Insurance\nAll full-time employees are enrolled in the Company's standard group health insurance plan from their date of",
+      "the standard plan at no additional cost to the employee. Coverage for additional dependents or an upgrade to\na premium plan tier is available at the employee's own cost through payroll deduction."
+    ],
+    "response":"Yes. The standard health insurance plan covers the employee\u2019s spouse and up to two children at no additional cost to the employee.",
+    "reference":"Yes, spouse and up to two children are covered under the standard plan.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.6368261851,
+    "context_precision":0.9999999999,
+    "context_recall":1.0
+  },
+  {
+    "user_input":"What is the company's stance on diversity and inclusion?",
+    "retrieved_contexts":[
+      "Meridian Industries - Diversity, Equity & Inclusion Policy\n1. Our Commitment\nMeridian Industries is committed to building and sustaining a diverse, equitable, and inclusive workplace. The\nCompany's stance on diversity and inclusion is one of zero tolerance for discrimination and active support for\na diverse workforce, spanning recruitment, promotion, compensation, and day-to-day treatment of all\nemployees.\n2. Non-Discrimination\nThe Company prohibits discrimination or harassment on the basis of race, color, religion, gender, gender\nidentity, sexual orientation, national origin, age, disability, or any other characteristic protected by applicable\nlaw. Reports of discrimination are investigated promptly and confidentially by HR.\n3. Inclusion Initiatives",
+      "Company's stance on diversity and inclusion is one of zero tolerance for discrimination and active support for",
+      "3. Inclusion Initiatives\nThe Company sponsors employee resource groups, runs unconscious-bias training for all people managers,\nand publishes an annual diversity report tracking representation across levels of seniority."
+    ],
+    "response":"The company\u2019s stance is one of **zero tolerance for discrimination and active support for a diverse workforce**, encompassing recruitment, promotion, compensation, and day\u2011to\u2011day treatment of all employees.",
+    "reference":"Zero tolerance for discrimination and active support for a diverse workforce.",
+    "faithfulness":1.0,
+    "answer_relevancy":0.8452148512,
+    "context_precision":1.0,
+    "context_recall":1.0
+  }
+]

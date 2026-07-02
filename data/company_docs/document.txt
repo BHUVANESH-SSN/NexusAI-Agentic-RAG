@@ -1,1 +1,0 @@
-put your docs and pdf in the company_docs folder
