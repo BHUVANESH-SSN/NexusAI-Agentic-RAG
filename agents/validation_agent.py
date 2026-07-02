@@ -1,5 +1,4 @@
 import logging
-import json
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from llm.factory import get_llm_with_failover
@@ -49,7 +48,7 @@ You MUST output raw JSON with this exact structure:
                 val["confidence"] = "medium"
                 
             return val
-        except Exception as e:
+        except Exception:
             LOGGER.exception("Validation Agent JSON parse failed.")
             return {
                 "answer": agent_result.get("answer", str(agent_result)),

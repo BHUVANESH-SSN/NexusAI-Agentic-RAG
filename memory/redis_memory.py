@@ -1,6 +1,5 @@
 import logging
 from typing import List
-from langchain_community.chat_message_histories import RedisChatMessageHistory
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 import redis
 

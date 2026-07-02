@@ -13,7 +13,7 @@ from agents.chatbot import EnterpriseChatbot
 from llm.factory import configure_logging, get_settings
 from rag.retriever import CompanyRetriever
 from security import require_identity, require_admin
-from utils.encryption import encrypt_value, decrypt_value
+from utils.encryption import encrypt_value
 
 configure_logging()
 LOGGER = logging.getLogger(__name__)
